@@ -7,6 +7,7 @@ import Footer from './components/Footer';
 import SupportChat from './components/SupportChat';
 import OrderList from './components/OrderList';
 import AdminPanel from './components/AdminPanel';
+import Calculator from './components/Calculator';
 import { CryptoCurrency, Order, RateInfo, WalletConfig, OrderStatus, ChatMessage, EmailConfig, FirebaseConfig, UserAccount } from './types';
 import { sendMessageToGemini } from './services/geminiService';
 import { useWallet } from './hooks/useWallet';
@@ -106,8 +107,8 @@ const usePersistedState = <T,>(key: string, initialValue: T): [T, React.Dispatch
 
 function App() {
   // View State
-  const [currentView, setCurrentView] = useState<'home' | 'orders'>('home');
-  const [pendingView, setPendingView] = useState<'home' | 'orders' | null>(null);
+  const [currentView, setCurrentView] = useState<'home' | 'orders' | 'tools'>('home');
+  const [pendingView, setPendingView] = useState<'home' | 'orders' | 'tools' | null>(null);
 
   // Persisted State
   const [rates, setRates] = usePersistedState<RateInfo>('nub_rates', INITIAL_RATES);
@@ -249,7 +250,7 @@ function App() {
         />
         
         <main className="flex-grow">
-          {currentView === 'home' ? (
+          {currentView === 'home' && (
             <>
               <Hero />
               <TradeSection 
@@ -262,9 +263,9 @@ function App() {
                 onOpenSupport={() => setIsChatOpen(true)}
               />
             </>
-          ) : (
-            <OrderList orders={orders} />
           )}
+          {currentView === 'orders' && <OrderList orders={orders} />}
+          {currentView === 'tools' && <Calculator />}
         </main>
         
         <Footer />

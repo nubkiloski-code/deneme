@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Menu, UserCircle, Wallet, LogOut, X, Lock, Copy, Check, ExternalLink, ChevronDown } from 'lucide-react';
+import { Menu, UserCircle, Wallet, LogOut, X, Lock, Copy, Check, ExternalLink, ChevronDown, Calculator } from 'lucide-react';
 import { UserAccount } from '../types';
 
 interface NavbarProps {
@@ -9,8 +9,8 @@ interface NavbarProps {
   onDisconnect: () => void;
   currentUser: UserAccount | null;
   onLogout: () => void;
-  onNavigate: (view: 'home' | 'orders') => void;
-  currentView: 'home' | 'orders';
+  onNavigate: (view: 'home' | 'orders' | 'tools') => void;
+  currentView: 'home' | 'orders' | 'tools';
 }
 
 const Navbar: React.FC<NavbarProps> = ({ 
@@ -85,12 +85,18 @@ const Navbar: React.FC<NavbarProps> = ({
         <div className="hidden md:flex items-center gap-6 text-slate-300 font-medium text-sm">
           
           <button 
+            onClick={() => onNavigate('tools')} 
+            className={`hover:text-gt-gold transition-colors flex items-center gap-1 ${currentView === 'tools' ? 'text-gt-gold font-bold' : ''}`}
+          >
+            <Calculator className="w-4 h-4" /> Tools
+          </button>
+
+          <button 
             onClick={() => onNavigate('orders')} 
             className={`hover:text-gt-gold transition-colors ${currentView === 'orders' ? 'text-gt-gold font-bold' : ''}`}
           >
             My Orders
           </button>
-          <a href="#faq" className="hover:text-gt-gold transition-colors">FAQ</a>
           
           {currentUser ? (
              <div className="flex items-center gap-4">
@@ -202,18 +208,17 @@ const Navbar: React.FC<NavbarProps> = ({
               Trade
             </button>
             <button 
+              onClick={() => { onNavigate('tools'); setIsMobileMenuOpen(false); }}
+              className={`text-lg font-medium text-left transition-colors border-b border-slate-800 pb-3 flex items-center gap-2 ${currentView === 'tools' ? 'text-gt-gold' : 'text-slate-300'}`}
+            >
+              <Calculator className="w-5 h-5" /> Tools
+            </button>
+            <button 
               onClick={() => { onNavigate('orders'); setIsMobileMenuOpen(false); }}
               className={`text-lg font-medium text-left transition-colors border-b border-slate-800 pb-3 ${currentView === 'orders' ? 'text-gt-gold' : 'text-slate-300'}`}
             >
               My Orders
             </button>
-            <a 
-              href="#faq" 
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="text-lg font-medium text-slate-300 hover:text-gt-gold transition-colors border-b border-slate-800 pb-3"
-            >
-              FAQ
-            </a>
             
             <button 
               onClick={() => {

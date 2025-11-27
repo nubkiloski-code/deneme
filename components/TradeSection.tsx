@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { TradeMode, CryptoCurrency, RateInfo, WalletConfig, Order, OrderDestination } from '../types';
 import CryptoSelector from './CryptoSelector';
-import { ArrowRight, Wallet, Lock, Copy, Check, ShieldCheck, Plus, Minus, Info, Activity, Globe, MessageCircleQuestion, Zap, QrCode, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowRight, Wallet, Lock, Copy, Check, ShieldCheck, Plus, Minus, Info, Activity, Globe, MessageCircleQuestion, Zap } from 'lucide-react';
 import { useWallet } from '../hooks/useWallet';
 
 interface TradeSectionProps {
@@ -47,9 +46,6 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
   const [payoutAddress, setPayoutAddress] = useState('');
   const [copied, setCopied] = useState(false);
   const [formRevealed, setFormRevealed] = useState(false);
-  
-  // Payment Method State
-  const [showManualTransfer, setShowManualTransfer] = useState(false);
   
   const formEndRef = useRef<HTMLDivElement>(null);
   const { sendTransaction } = useWallet();
@@ -105,10 +101,12 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
             }
         });
         if (!response.ok) {
+           // Silently fail if rate limited to avoid console spam
            return; 
         }
         const data = await response.json();
         
+        // Ensure we map the API response correctly to our Enum keys
         setCryptoPrices(prev => ({
           ...prev,
           [CryptoCurrency.BTC]: data.bitcoin.usd,
@@ -122,6 +120,7 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
     };
 
     fetchPrices();
+    // Set to 60 seconds (1 minute) to be safe with public API rate limits
     const interval = setInterval(fetchPrices, 60000); 
     return () => clearInterval(interval);
   }, []);
@@ -142,6 +141,7 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
     
     const numVal = parseFloat(val);
     if (!isNaN(numVal) && currentCryptoPrice > 0) {
+        // Reverse calc: Crypto -> USD -> DLs
         const usdValue = numVal * currentCryptoPrice;
         const dlAmount = usdValue / rate;
         setAmount(dlAmount);
@@ -158,6 +158,8 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
     
     const numVal = parseFloat(val);
     if (!isNaN(numVal)) {
+        // Reverse calc: USD -> DLs
+        // totalUSD = amount * rate  =>  amount = totalUSD / rate
         const newAmount = numVal / rate;
         setAmount(newAmount);
     } else if (val === '') {
@@ -171,6 +173,7 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
     setAmount(Math.max(0, parseFloat(e.target.value) || 0));
   };
 
+  // Split Calculation Logic (Integer Distribution)
   const getSplitAmounts = () => {
     const baseAmount = Math.floor(amount / worldCount); 
     const splits = [];
@@ -178,6 +181,7 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
     
     for (let i = 0; i < worldCount; i++) {
       if (i === worldCount - 1) {
+        // Last world gets whatever is left
         splits.push(parseFloat(remainingAmount.toFixed(2)));
       } else {
         let val = Math.floor(amount / worldCount);
@@ -194,6 +198,7 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
 
   const splitAmounts = getSplitAmounts();
 
+  // Update destinations when worldCount changes
   useEffect(() => {
     setDestinations(prev => {
       if (prev.length === worldCount) return prev;
@@ -239,31 +244,10 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
     
     const result = await sendTransaction(toAddress, amountToSend, selectedCrypto);
     
-    if (result && selectedCrypto === CryptoCurrency.ETH) {
-        // ETH returns a hash immediately
+    if (result) {
         setTxHash(result);
-        alert("Transaction sent! Hash captured.");
-    } else if (result === 'EXTERNAL_APP') {
-        // BTC/LTC opened an app
-        alert("Wallet app opened. Please complete the transfer and paste the Transaction ID/Hash below.");
+        alert("Transaction sent! Hash copied to form.");
     }
-  };
-
-  // Generic Open App handler for Coinbase/Others
-  const handleOpenApp = (scheme: string) => {
-      if (!selectedCrypto) return;
-      const toAddress = wallets[selectedCrypto];
-      const amountToSend = parseFloat(displayCrypto);
-      
-      let url = '';
-      if (selectedCrypto === CryptoCurrency.BTC) url = `bitcoin:${toAddress}?amount=${amountToSend}`;
-      else if (selectedCrypto === CryptoCurrency.ETH) url = `ethereum:${toAddress}?value=${amountToSend}`; // Ethereum URI standard usually needs wei, but some apps take decimal
-      else if (selectedCrypto === CryptoCurrency.LTC) url = `litecoin:${toAddress}?amount=${amountToSend}`;
-      
-      if (url) {
-          window.location.href = url; // More reliable than window.open for protocols
-          alert("Opening App... If nothing happens, please use Manual Transfer.");
-      }
   };
 
   const handleSubmit = (isGuest: boolean = false) => {
@@ -274,7 +258,6 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
 
     if (step === 1) {
       setStep(2);
-      setShowManualTransfer(false); // Reset view
     } else {
       const orderData: Partial<Order> = {
         type: mode,
@@ -327,14 +310,14 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
             </div>
           </div>
 
-          {/* Interactive Form */}
+          {/* Interactive Form - Full Width/Centered */}
           <div className="px-4 pb-6 md:px-6 lg:px-12 lg:pb-12 relative">
 
              <div className="max-w-2xl mx-auto flex flex-col pt-0">
                 {step === 1 ? (
                   <div className="space-y-2 animate-in slide-in-from-right-4 fade-in duration-500">
                     
-                    {/* Input Group */}
+                    {/* Input Group - Compacted Gaps */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-4 md:mt-6">
                       <div className="space-y-1">
                         <label className="text-xs font-bold text-slate-400 uppercase ml-1">Quantity</label>
@@ -396,6 +379,7 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
 
                     {/* Crypto Selector */}
                     <div>
+                      {/* Live Market Rate Display */}
                       {selectedCrypto && (
                         <div className="flex justify-center my-3 animate-in fade-in slide-in-from-top-1">
                             <div className="inline-flex items-center gap-3 bg-slate-900/50 rounded-lg px-3 py-1.5 border border-slate-700/50 shadow-sm">
@@ -414,6 +398,7 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
                       <label className="text-xs font-bold text-slate-500 uppercase ml-1 mb-1 block">Select Payment Method</label>
                       <CryptoSelector selected={selectedCrypto} onSelect={handleCryptoSelection} />
                       
+                      {/* Contact Admin Helper Text - UPDATED COLOR AND ICON */}
                       <div className="text-center mt-3">
                         <button 
                             onClick={onOpenSupport}
@@ -424,7 +409,7 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
                       </div>
                     </div>
 
-                    {/* Dynamic Content Area */}
+                    {/* Dynamic Content Area - Revealed on Interaction */}
                     <div 
                         ref={formEndRef}
                         className={`transition-all duration-700 ease-in-out overflow-hidden ${formRevealed ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}
@@ -433,6 +418,7 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
                         
                         {/* DISTINCT WORLD SECTION CARD */}
                         <div className="bg-slate-900/80 rounded-3xl p-4 md:p-6 border border-slate-700/80 shadow-2xl relative overflow-hidden">
+                          {/* Card Header Background */}
                           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-gt-gold to-transparent opacity-50"></div>
                           
                           <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-700/50">
@@ -446,6 +432,7 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
                           </div>
 
                           {isBuy ? (
+                              /* BUY MODE OPTIONS */
                               <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
                                 <div 
                                     onClick={() => setIsSafeMode(!isSafeMode)}
@@ -467,7 +454,9 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
                                     </div>
                                     </div>
 
-                                    {isSafeMode && (
+                                    {/* Expanded Safe Mode Settings */}
+                                    <div className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${isSafeMode ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
+                                    <div className="overflow-hidden">
                                         <div className="px-3 pb-3 pt-0 md:px-4 md:pb-4">
                                             <div className="bg-slate-900/50 rounded-xl p-3 border border-emerald-500/20 flex justify-between items-center">
                                                 <span className="text-xs font-bold text-emerald-100">Worlds to split between:</span>
@@ -478,7 +467,8 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
                                                 </div>
                                             </div>
                                         </div>
-                                    )}
+                                    </div>
+                                    </div>
                                 </div>
 
                                 {/* Destinations Input */}
@@ -492,6 +482,7 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
                                         <div key={idx} className="flex gap-2 items-start md:items-center animate-in slide-in-from-bottom-2 fade-in flex-col md:flex-row" style={{ animationDelay: `${idx * 50}ms` }}>
                                             <div className="flex items-center gap-2 w-full md:w-auto">
                                               <span className="text-xs text-slate-600 w-4 font-mono">{idx + 1}</span>
+                                              {/* Mobile View: Amount next to index */}
                                               <div className="md:hidden w-12 text-right ml-auto">
                                                   <span className="text-xs font-bold text-emerald-400">{splitAmounts[idx]}</span>
                                               </div>
@@ -587,6 +578,7 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
                         <div className="mt-6">
                             {!isLoggedIn ? (
                                 <div className="flex flex-col gap-3">
+                                    
                                     <button
                                         onClick={() => handleSubmit(true)}
                                         disabled={!validateForm()}
@@ -607,6 +599,7 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
                                     >
                                         {isBuy ? 'Log in to Buy' : 'Log in to Sell'}
                                     </button>
+                                    
                                 </div>
                             ) : (
                                 <button
@@ -627,149 +620,79 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
 
                   </div>
                 ) : (
-                  /* STEP 2: CONFIRMATION & PAYMENT (ELDORADO STYLE) */
-                  <div className="animate-in slide-in-from-right-8 fade-in duration-500 h-full flex flex-col justify-center max-w-lg mx-auto">
-                     
-                     <div className="text-center mb-8">
-                       <h3 className="text-slate-400 text-sm font-bold uppercase tracking-wider mb-2">Total to Pay</h3>
-                       <div className="text-5xl md:text-6xl font-black text-white tracking-tighter mb-4">
-                         <span className="text-3xl align-top mr-1 opacity-50">$</span>
-                         {totalUSD.toFixed(2)}
-                         <span className="text-xl text-slate-500 ml-2 font-medium">USD</span>
-                       </div>
-                       
-                       <div className="inline-flex items-center gap-2 bg-slate-800/80 px-4 py-2 rounded-full border border-slate-700">
-                          <Info className="w-4 h-4 text-slate-400" />
-                          <span className="text-sm font-bold text-slate-200">Order: {amount} DLs</span>
-                          <span className="text-slate-600">|</span>
-                          <span className="text-sm font-mono text-gt-gold">{displayCrypto} {selectedCrypto}</span>
-                       </div>
+                  /* STEP 2: CONFIRMATION */
+                  <div className="space-y-8 animate-in slide-in-from-right-8 fade-in duration-500 h-full flex flex-col justify-center">
+                     <div className="text-center">
+                        <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 ${isBuy ? 'bg-gt-gold/20' : 'bg-blue-500/20'}`}>
+                           {isBuy ? <Wallet className="w-10 h-10 text-gt-gold" /> : <Lock className="w-10 h-10 text-blue-400" />}
+                        </div>
+                        <h2 className="text-3xl font-bold text-white mb-2">
+                           {isBuy ? 'Send Payment' : 'Drop Items'}
+                        </h2>
+                        <p className="text-slate-400 text-sm max-w-md mx-auto">
+                           {isBuy 
+                             ? `Please send exactly ${displayCrypto} ${selectedCrypto} to the address below. Your order will process automatically.` 
+                             : `Go to the world below and drop ${amount} DLs. Ensure the world owner is correct.`}
+                        </p>
                      </div>
 
-                     {/* Payment Method Selection Card */}
-                     <div className="bg-white rounded-3xl overflow-hidden shadow-2xl animate-in slide-in-from-bottom-4 duration-700">
-                        <div className="p-6 md:p-8">
-                           <h4 className="text-slate-900 font-bold text-lg mb-6 flex items-center gap-2">
-                             Select Payment Method
-                           </h4>
-                           
-                           <div className="space-y-3">
-                              {/* 1. Coinbase Pay (New) */}
-                              {isBuy && selectedCrypto !== CryptoCurrency.USDT && (
-                                <button 
-                                  onClick={() => handleOpenApp('coinbase')}
-                                  className="w-full flex items-center justify-between p-4 rounded-xl border border-slate-200 hover:border-[#0052FF] hover:bg-[#0052FF]/5 transition-all group"
-                                >
-                                   <div className="flex items-center gap-4">
-                                      <div className="w-10 h-10 rounded-full bg-[#0052FF] flex items-center justify-center text-white shrink-0">
-                                         <span className="font-bold text-lg">C</span>
-                                      </div>
-                                      <div className="text-left">
-                                         <div className="text-slate-900 font-bold group-hover:text-[#0052FF] transition-colors">Coinbase Pay</div>
-                                         <div className="text-xs text-slate-500">Open Coinbase app to pay</div>
-                                      </div>
-                                   </div>
-                                   <ArrowRight className="w-5 h-5 text-slate-300 group-hover:text-[#0052FF] transition-colors" />
-                                </button>
-                              )}
-
-                              {/* 2. Connect Wallet (Web3) */}
-                              {isBuy && selectedCrypto && (
-                                <button 
-                                  onClick={handlePayWithWallet}
-                                  className="w-full flex items-center justify-between p-4 rounded-xl border border-slate-200 hover:border-orange-500 hover:bg-orange-50 transition-all group"
-                                >
-                                   <div className="flex items-center gap-4">
-                                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white shrink-0">
-                                         <Wallet className="w-5 h-5" />
-                                      </div>
-                                      <div className="text-left">
-                                         <div className="text-slate-900 font-bold group-hover:text-orange-600 transition-colors">Connect Wallet</div>
-                                         <div className="text-xs text-slate-500">
-                                            {selectedCrypto === CryptoCurrency.ETH ? 'MetaMask / WalletConnect' : 'External Wallet App'}
-                                         </div>
-                                      </div>
-                                   </div>
-                                   <ArrowRight className="w-5 h-5 text-slate-300 group-hover:text-orange-500 transition-colors" />
-                                </button>
-                              )}
-
-                              {/* 3. Manual Transfer (Expandable) */}
-                              <div className={`border rounded-xl transition-all duration-300 ${showManualTransfer ? 'border-slate-300 bg-slate-50' : 'border-slate-200 hover:border-slate-400'}`}>
-                                 <button 
-                                    onClick={() => setShowManualTransfer(!showManualTransfer)}
-                                    className="w-full flex items-center justify-between p-4"
-                                 >
-                                    <div className="flex items-center gap-4">
-                                       <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-white shrink-0">
-                                          <QrCode className="w-5 h-5" />
-                                       </div>
-                                       <div className="text-left">
-                                          <div className="text-slate-900 font-bold">Manual Transfer</div>
-                                          <div className="text-xs text-slate-500">Scan QR or copy address</div>
-                                       </div>
-                                    </div>
-                                    {showManualTransfer ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
-                                 </button>
-
-                                 {/* Expanded Manual Details */}
-                                 {showManualTransfer && (
-                                    <div className="px-4 pb-6 pt-2 animate-in slide-in-from-top-2">
-                                       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-inner">
-                                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Address to Send {selectedCrypto}</label>
-                                          <div className="flex gap-2">
-                                             <div className="flex-1 bg-slate-100 rounded-lg px-3 py-2 font-mono text-xs text-slate-800 break-all select-all">
-                                                {isBuy && selectedCrypto ? wallets[selectedCrypto] : 'MARKET123'}
-                                             </div>
-                                             <button 
-                                                onClick={() => copyToClipboard(isBuy && selectedCrypto ? wallets[selectedCrypto] : 'MARKET123')}
-                                                className="bg-slate-200 hover:bg-slate-300 p-2 rounded-lg text-slate-600 transition-colors"
-                                             >
-                                                {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
-                                             </button>
-                                          </div>
-                                       </div>
-                                    </div>
-                                 )}
-                              </div>
-                           </div>
+                     <div 
+                        onClick={() => copyToClipboard(isBuy && selectedCrypto ? wallets[selectedCrypto] : 'MARKET123')}
+                        className={`p-6 rounded-2xl border-2 border-dashed cursor-pointer transition-all group relative ${isBuy ? 'bg-slate-800/30 border-slate-600 hover:border-gt-gold' : 'bg-slate-800/30 border-blue-500/30 hover:border-blue-500'}`}
+                     >
+                        <div className="flex justify-between items-center mb-2">
+                           <span className="text-xs font-bold uppercase tracking-widest text-slate-500">{isBuy ? 'Wallet Address' : 'World Name'}</span>
+                           {copied && <span className="text-xs font-bold text-green-500 flex items-center gap-1"><Check className="w-3 h-3" /> Copied</span>}
                         </div>
-                        
-                        {/* Security Footer */}
-                        <div className="bg-slate-50 px-6 py-3 border-t border-slate-100 flex items-center justify-center gap-2 text-[10px] text-slate-400">
-                           <ShieldCheck className="w-3 h-3" /> Secure Payment Processing
+                        <div className="font-mono text-xl md:text-2xl text-white break-all">
+                           {isBuy && selectedCrypto ? wallets[selectedCrypto] : 'MARKET123'}
+                        </div>
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 p-2 rounded-lg shadow-lg">
+                           <Copy className="w-4 h-4 text-white" />
                         </div>
                      </div>
 
-                     {/* Transaction Hash Input (Always Visible at bottom) */}
                      {isBuy && (
-                        <div className="mt-6">
-                           <div className="bg-slate-800/50 rounded-2xl p-4 border border-slate-700">
-                              <label className="text-xs font-bold text-slate-500 uppercase ml-1 mb-2 block">Transaction Hash (TXID)</label>
-                              <input 
-                                 type="text"
-                                 value={txHash}
-                                 onChange={(e) => setTxHash(e.target.value)}
-                                 placeholder="Paste TXID after payment..."
-                                 className="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-sm text-white focus:border-gt-gold outline-none font-mono"
-                              />
-                           </div>
+                        <div className="bg-slate-800/50 rounded-2xl p-4 border border-slate-700">
+                           <label className="text-xs font-bold text-slate-500 uppercase ml-1 mb-2 block">Transaction Hash (TXID)</label>
+                           <input 
+                              type="text"
+                              value={txHash}
+                              onChange={(e) => setTxHash(e.target.value)}
+                              placeholder="Paste your transaction ID here..."
+                              className="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-sm text-white focus:border-gt-gold outline-none font-mono"
+                           />
                         </div>
                      )}
 
-                     <div className="flex gap-4 mt-6">
+                     {/* Pay With Wallet Button (Added) */}
+                     {isBuy && selectedCrypto && selectedCrypto !== CryptoCurrency.USDT && (
+                        <button
+                            onClick={handlePayWithWallet}
+                            className={`w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all mb-2 shadow-lg ${
+                                selectedCrypto === CryptoCurrency.ETH ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-900/20' :
+                                selectedCrypto === CryptoCurrency.BTC ? 'bg-orange-500 hover:bg-orange-400 text-white shadow-orange-900/20' :
+                                'bg-blue-500 hover:bg-blue-400 text-white shadow-blue-900/20'
+                            }`}
+                        >
+                            <Wallet className="w-4 h-4" /> 
+                            {selectedCrypto === CryptoCurrency.ETH ? 'Pay via MetaMask' : 'Open Wallet App'}
+                        </button>
+                     )}
+
+                     <div className="flex gap-4">
                         <button
                            onClick={() => setStep(1)}
-                           className="py-4 px-6 rounded-xl font-bold text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+                           className="flex-1 py-4 rounded-xl font-bold text-slate-400 hover:bg-slate-800 hover:text-white transition-colors border border-transparent hover:border-slate-700"
                         >
-                           Back
+                           Go Back
                         </button>
                         <button
                            onClick={() => handleSubmit(false)}
                            disabled={isBuy && !txHash}
-                           className={`flex-1 py-4 rounded-xl font-bold text-white shadow-lg flex items-center justify-center gap-2 transition-all hover:scale-[1.02] ${isBuy ? 'bg-green-600 hover:bg-green-500' : 'bg-blue-600 hover:bg-blue-500'} disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none`}
+                           className={`flex-[2] py-4 rounded-xl font-bold text-white shadow-lg flex items-center justify-center gap-2 transition-all hover:scale-[1.02] ${isBuy ? 'bg-green-600 hover:bg-green-500' : 'bg-blue-600 hover:bg-blue-500'} disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none`}
                         >
-                           {isBuy ? 'Confirm Payment' : 'I Have Dropped Items'} <Check className="w-5 h-5" />
+                           {isBuy ? 'I Have Sent Payment' : 'I Have Dropped Items'} <Check className="w-5 h-5" />
                         </button>
                      </div>
                   </div>

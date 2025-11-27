@@ -267,38 +267,6 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
             </div>
           </div>
 
-          <div className="flex justify-center mb-2">
-            <div className="bg-slate-800 p-1 rounded-full border border-slate-700 inline-flex relative shadow-inner">
-               <div 
-                 className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-blue-600 rounded-full transition-all duration-300 ease-out shadow-lg shadow-blue-900/50 ${isBuy ? 'left-1 bg-gt-gold shadow-yellow-900/50' : 'left-[calc(50%+4px)] bg-blue-600'}`}
-               ></div>
-               <button
-                 onClick={() => {
-                   setMode(TradeMode.BUY);
-                   setStep(1);
-                   setSelectedCrypto(null);
-                   setFormRevealed(false);
-                 }}
-                 className={`relative z-10 px-8 py-3 md:px-16 md:py-4 rounded-full text-sm md:text-lg font-bold transition-colors duration-300 flex items-center gap-2 ${isBuy ? 'text-slate-900' : 'text-slate-400 hover:text-white'}`}
-               >
-                 BUY DLs
-                 <ArrowDownUp className="w-4 h-4 hidden md:block" />
-               </button>
-               <button
-                 onClick={() => {
-                   setMode(TradeMode.SELL);
-                   setStep(1);
-                   setSelectedCrypto(null);
-                   setFormRevealed(false);
-                 }}
-                 className={`relative z-10 px-8 py-3 md:px-16 md:py-4 rounded-full text-sm md:text-lg font-bold transition-colors duration-300 flex items-center gap-2 ${!isBuy ? 'text-white' : 'text-slate-400 hover:text-white'}`}
-               >
-                 SELL DLs
-                 <ArrowDownUp className="w-4 h-4 hidden md:block" />
-               </button>
-            </div>
-          </div>
-
           {/* Interactive Form - Full Width/Centered */}
           <div className="px-4 pb-6 md:px-6 lg:px-12 lg:pb-12 relative">
 

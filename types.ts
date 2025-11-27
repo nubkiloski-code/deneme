@@ -1,3 +1,4 @@
+
 export enum TradeMode {
   BUY = 'BUY',
   SELL = 'SELL'
@@ -67,6 +68,7 @@ export interface Order {
   growId: string; // Primary ID or "Multiple"
   worldName: string; // Primary World or "Safe Mode"
   isSafeMode?: boolean;
+  isGuest?: boolean;
   destinations?: OrderDestination[];
   status: OrderStatus;
   timestamp: number;

@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageSquare, X, Send, Loader2, Bot, User, Shield } from 'lucide-react';
 import { ChatMessage } from '../types';
@@ -6,12 +7,27 @@ interface SupportChatProps {
   messages: ChatMessage[];
   onSendMessage: (text: string) => void;
   isLoading: boolean;
+  externalOpen?: boolean;
+  setExternalOpen?: (open: boolean) => void;
 }
 
-const SupportChat: React.FC<SupportChatProps> = ({ messages, onSendMessage, isLoading }) => {
+const SupportChat: React.FC<SupportChatProps> = ({ messages, onSendMessage, isLoading, externalOpen, setExternalOpen }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Sync with external control if provided
+  useEffect(() => {
+    if (externalOpen !== undefined) {
+        setIsOpen(externalOpen);
+    }
+  }, [externalOpen]);
+
+  const toggleOpen = () => {
+      const newState = !isOpen;
+      setIsOpen(newState);
+      if (setExternalOpen) setExternalOpen(newState);
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -27,6 +43,7 @@ const SupportChat: React.FC<SupportChatProps> = ({ messages, onSendMessage, isLo
         const lastMsg = messages[messages.length - 1];
         if (lastMsg.role === 'admin' && !isOpen) {
             setIsOpen(true);
+            if (setExternalOpen) setExternalOpen(true);
         }
     }
   }, [messages]);
@@ -56,7 +73,7 @@ const SupportChat: React.FC<SupportChatProps> = ({ messages, onSendMessage, isLo
               </div>
             </div>
             <button 
-              onClick={() => setIsOpen(false)}
+              onClick={toggleOpen}
               className="text-slate-400 hover:text-white transition-colors"
             >
               <X className="w-5 h-5" />
@@ -129,7 +146,7 @@ const SupportChat: React.FC<SupportChatProps> = ({ messages, onSendMessage, isLo
       )}
 
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={toggleOpen}
         className="bg-gt-gold hover:bg-yellow-400 text-slate-900 rounded-full p-4 shadow-lg shadow-yellow-900/20 transition-all transform hover:scale-110"
       >
         {isOpen ? <X className="w-6 h-6" /> : <MessageSquare className="w-6 h-6" />}

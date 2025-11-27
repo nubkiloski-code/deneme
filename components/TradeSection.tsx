@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { TradeMode, CryptoCurrency, RateInfo, WalletConfig, Order, OrderDestination } from '../types';
 import CryptoSelector from './CryptoSelector';
-import { ArrowRight, Wallet, Lock, Copy, Check, ArrowDownUp, ShieldCheck, Plus, Minus, Info, TrendingUp, Activity, User, Globe, ChevronDown } from 'lucide-react';
+import { ArrowRight, Wallet, Lock, Copy, Check, ShieldCheck, Plus, Minus, Info, Activity, Globe, MessageCircleQuestion } from 'lucide-react';
 
 interface TradeSectionProps {
   rates: RateInfo;
@@ -10,9 +11,10 @@ interface TradeSectionProps {
   onOrderSubmit: (orderData: Partial<Order>) => void;
   isLoggedIn: boolean;
   onRequestLogin: () => void;
+  onOpenSupport: () => void;
 }
 
-const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletAddress, onOrderSubmit, isLoggedIn, onRequestLogin }) => {
+const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletAddress, onOrderSubmit, isLoggedIn, onRequestLogin, onOpenSupport }) => {
   const [mode, setMode] = useState<TradeMode>(TradeMode.BUY);
   const [amount, setAmount] = useState<number>(10); // Amount in DLs
   const [selectedCrypto, setSelectedCrypto] = useState<CryptoCurrency | null>(null);
@@ -208,8 +210,8 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
     });
   };
 
-  const handleSubmit = () => {
-    if (!isLoggedIn) {
+  const handleSubmit = (isGuest: boolean = false) => {
+    if (!isLoggedIn && !isGuest) {
         onRequestLogin();
         return;
     }
@@ -224,6 +226,7 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
         currency: selectedCrypto as CryptoCurrency,
         totalUSD: parseFloat(totalUSD.toFixed(2)),
         isSafeMode: isSafeMode,
+        isGuest: isGuest,
         txHash: isBuy ? txHash : undefined,
         payoutAddress: !isBuy ? payoutAddress : undefined
       };
@@ -277,7 +280,7 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
                     {/* Input Group - Compacted Gaps */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-4 md:mt-6">
                       <div className="space-y-1">
-                        <label className="text-xs font-bold text-slate-400 uppercase ml-1">Quantity (DLs)</label>
+                        <label className="text-xs font-bold text-slate-400 uppercase ml-1">Quantity</label>
                         <div className="relative group">
                           <input
                             type="number"
@@ -287,7 +290,7 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
                             onBlur={() => setActiveInput(null)}
                             className="w-full bg-slate-800 border border-slate-600 rounded-2xl px-4 py-2.5 text-xl md:text-2xl font-bold text-white focus:border-gt-gold focus:ring-1 focus:ring-gt-gold outline-none transition-all shadow-inner [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
-                          <div className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold bg-transparent px-2 py-1 rounded text-slate-300 pointer-events-none">DLs</div>
+                          <div className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400 pointer-events-none">DLs</div>
                         </div>
                       </div>
 
@@ -339,6 +342,16 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
                       
                       <label className="text-xs font-bold text-slate-500 uppercase ml-1 mb-1 block">Select Payment Method</label>
                       <CryptoSelector selected={selectedCrypto} onSelect={handleCryptoSelection} />
+                      
+                      {/* Contact Admin Helper Text */}
+                      <div className="text-center mt-3">
+                        <button 
+                            onClick={onOpenSupport}
+                            className="text-xs text-slate-500 hover:text-gt-gold transition-colors flex items-center justify-center gap-1 mx-auto hover:underline decoration-slate-700"
+                        >
+                            <MessageCircleQuestion className="w-3 h-3" /> Using another currency? Contact with our admin
+                        </button>
+                      </div>
                     </div>
 
                     {/* Dynamic Content Area - Revealed on Interaction */}
@@ -425,13 +438,13 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
                                                 placeholder="GrowID" 
                                                 value={dest.growId}
                                                 onChange={(e) => handleDestinationChange(idx, 'growId', e.target.value)}
-                                                className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:border-gt-gold outline-none w-full"
+                                                className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:border-gt-gold outline-none w-full min-w-0"
                                                 />
                                                 <input 
                                                 placeholder="World" 
                                                 value={dest.worldName}
                                                 onChange={(e) => handleDestinationChange(idx, 'worldName', e.target.value)}
-                                                className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:border-gt-gold outline-none w-full"
+                                                className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:border-gt-gold outline-none w-full min-w-0"
                                                 />
                                             </div>
                                             <div className="hidden md:block w-12 text-right">
@@ -442,29 +455,27 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
                                     </div>
                                 ) : (
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div>
+                                        <div className="min-w-0">
                                         <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">GrowID</label>
                                         <div className="relative">
-                                          <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                                           <input
                                               type="text"
                                               value={growId}
                                               onChange={(e) => setGrowId(e.target.value)}
                                               placeholder="Player123"
-                                              className="w-full bg-slate-800 border border-slate-600 rounded-xl pl-10 pr-4 py-3 text-white text-sm focus:border-gt-gold outline-none"
+                                              className="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white text-sm focus:border-gt-gold outline-none min-w-0"
                                           />
                                         </div>
                                         </div>
-                                        <div>
+                                        <div className="min-w-0">
                                         <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">World Name</label>
                                         <div className="relative">
-                                          <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                                           <input
                                               type="text"
                                               value={worldName}
                                               onChange={(e) => setWorldName(e.target.value)}
                                               placeholder="MYWORLD"
-                                              className="w-full bg-slate-800 border border-slate-600 rounded-xl pl-10 pr-4 py-3 text-white text-sm focus:border-gt-gold outline-none"
+                                              className="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white text-sm focus:border-gt-gold outline-none min-w-0"
                                           />
                                         </div>
                                         </div>
@@ -511,15 +522,24 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
 
                         <div className="mt-6">
                             {!isLoggedIn ? (
-                                <button
-                                    onClick={onRequestLogin}
-                                    className="w-full py-4 rounded-2xl font-bold text-lg shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 bg-slate-700 text-white hover:bg-slate-600 shadow-slate-900/20"
-                                >
-                                    {isBuy ? 'Log in to Buy' : 'Log in to Sell'}
-                                </button>
+                                <div className="flex flex-col gap-3">
+                                    <button
+                                        onClick={onRequestLogin}
+                                        className="w-full py-4 rounded-2xl font-bold text-lg shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 bg-slate-700 text-white hover:bg-slate-600 shadow-slate-900/20"
+                                    >
+                                        {isBuy ? 'Log in to Buy' : 'Log in to Sell'}
+                                    </button>
+                                    <button
+                                        onClick={() => handleSubmit(true)}
+                                        disabled={!validateForm()}
+                                        className="w-full py-2 text-sm font-medium text-slate-400 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        Continue as Guest
+                                    </button>
+                                </div>
                             ) : (
                                 <button
-                                    onClick={handleSubmit}
+                                    onClick={() => handleSubmit(false)}
                                     disabled={!validateForm()}
                                     className={`w-full py-4 rounded-2xl font-bold text-lg shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 ${
                                         isBuy 
@@ -589,7 +609,7 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
                            Go Back
                         </button>
                         <button
-                           onClick={handleSubmit}
+                           onClick={() => handleSubmit(false)}
                            disabled={isBuy && !txHash}
                            className={`flex-[2] py-4 rounded-xl font-bold text-white shadow-lg flex items-center justify-center gap-2 transition-all hover:scale-[1.02] ${isBuy ? 'bg-green-600 hover:bg-green-500' : 'bg-blue-600 hover:bg-blue-500'} disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none`}
                         >

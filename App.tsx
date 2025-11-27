@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
@@ -122,6 +123,7 @@ function App() {
   ]);
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [isLiveSupport, setIsLiveSupport] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false); // Lifted state to control chat visibility
 
   // Wallet Logic from Custom Hook
   const { userWalletAddress, connectWallet, disconnectWallet } = useWallet();
@@ -152,6 +154,11 @@ function App() {
   }, []);
 
   // Handlers
+  const handleAdminSendMessage = (text: string) => {
+    const adminMsg: ChatMessage = { id: Date.now().toString(), role: 'admin', text, timestamp: Date.now() };
+    setMessages(prev => [...prev, adminMsg]);
+  };
+
   const handleOrderSubmit = (orderData: Partial<Order>) => {
     const newOrder: Order = {
       id: Math.random().toString(36).substr(2, 9).toUpperCase(),
@@ -167,9 +174,17 @@ function App() {
       txHash: orderData.txHash,
       payoutAddress: orderData.payoutAddress,
       isSafeMode: orderData.isSafeMode,
+      isGuest: orderData.isGuest,
       destinations: orderData.destinations
     };
     setOrders(prev => [...prev, newOrder]);
+    
+    // INFORM ADMIN IF GUEST ORDER
+    if (orderData.isGuest) {
+      const alertText = `🚨 SYSTEM ALERT: New Guest Order #${newOrder.id} (${newOrder.amount} DLs - $${newOrder.totalUSD}). Check Orders tab.`;
+      handleAdminSendMessage(alertText);
+    }
+
     setCurrentView('orders'); // Navigate to orders page after submitting
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -209,11 +224,6 @@ function App() {
     setIsChatLoading(false);
   };
 
-  const handleAdminSendMessage = (text: string) => {
-    const adminMsg: ChatMessage = { id: Date.now().toString(), role: 'admin', text, timestamp: Date.now() };
-    setMessages(prev => [...prev, adminMsg]);
-  };
-
   return (
     <div className="min-h-screen flex flex-col relative">
       <GlobalBackground />
@@ -249,6 +259,7 @@ function App() {
                 onOrderSubmit={handleOrderSubmit} 
                 isLoggedIn={!!currentUser}
                 onRequestLogin={() => setShowAdmin(true)}
+                onOpenSupport={() => setIsChatOpen(true)}
               />
             </>
           ) : (
@@ -263,6 +274,8 @@ function App() {
         messages={messages} 
         onSendMessage={handleUserSendMessage}
         isLoading={isChatLoading}
+        externalOpen={isChatOpen}
+        setExternalOpen={setIsChatOpen}
       />
 
       {showAdmin && (

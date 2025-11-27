@@ -554,7 +554,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   // 1. AUTH SCREEN
   if (userRole === 'guest') {
     return (
-      <div className="fixed inset-0 z-[60] bg-slate-900/95 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-[60] bg-slate-900/95 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-500">
         
         {/* Back Arrow (Home) */}
         <button 
@@ -588,7 +588,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
         )}
 
-        <div className="bg-gt-card w-full max-w-md rounded-2xl border border-slate-700 shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
+        <div className="bg-gt-card w-full max-w-md rounded-2xl border border-slate-700 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 slide-in-from-bottom-4 duration-500 ease-out">
           
           {/* Tabs (Only visible if not verifying) */}
           {authMode !== 'verify' && (

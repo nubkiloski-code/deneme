@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { CryptoCurrency } from '../types';
 
 export const useWallet = () => {
   const [userWalletAddress, setUserWalletAddress] = useState('');
@@ -7,6 +8,14 @@ export const useWallet = () => {
     const ethereum = (window as any).ethereum;
     
     if (!ethereum) {
+      // Check if mobile - if so, deep link to MetaMask
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      if (isMobile) {
+          window.location.href = `dapp://${window.location.host}`;
+          return;
+      }
+      
+      // Standard alert for desktop
       alert("No crypto wallet detected. Please install a Web3 wallet like MetaMask, Phantom, or Coinbase Wallet.");
       return;
     }
@@ -18,12 +27,54 @@ export const useWallet = () => {
       }
     } catch (error) {
       console.error("User rejected connection", error);
-      alert("Connection rejected. Please approve the connection in your wallet.");
+      // Don't alert if user just closed the modal, only on actual error
     }
   };
 
   const disconnectWallet = () => {
     setUserWalletAddress('');
+  };
+
+  const sendTransaction = async (toAddress: string, amount: number, currency: CryptoCurrency): Promise<string | null> => {
+    const ethereum = (window as any).ethereum;
+
+    try {
+        if (currency === CryptoCurrency.ETH) {
+            if (!ethereum) {
+                alert("MetaMask is required for automatic ETH payments.");
+                return null;
+            }
+            
+            // Convert ETH to Wei (18 decimals)
+            // Note: This is a basic conversion. For production, use ethers.js or viem
+            const weiValue = "0x" + (amount * 1e18).toString(16);
+
+            const txHash = await ethereum.request({
+                method: 'eth_sendTransaction',
+                params: [
+                    {
+                        from: userWalletAddress,
+                        to: toAddress,
+                        value: weiValue,
+                    },
+                ],
+            });
+            return txHash;
+        } 
+        else if (currency === CryptoCurrency.BTC) {
+            window.location.href = `bitcoin:${toAddress}?amount=${amount}`;
+            return null;
+        }
+        else if (currency === CryptoCurrency.LTC) {
+            window.location.href = `litecoin:${toAddress}?amount=${amount}`;
+            return null;
+        }
+        
+        return null;
+    } catch (error) {
+        console.error("Payment failed:", error);
+        return null;
+    }
   };
 
   useEffect(() => {
@@ -60,5 +111,5 @@ export const useWallet = () => {
     }
   }, []);
 
-  return { userWalletAddress, connectWallet, disconnectWallet };
+  return { userWalletAddress, connectWallet, disconnectWallet, sendTransaction };
 };

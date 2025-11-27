@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { TradeMode, CryptoCurrency, RateInfo, WalletConfig, Order, OrderDestination } from '../types';
 import CryptoSelector from './CryptoSelector';
-import { ArrowRight, Wallet, Lock, Copy, Check, ShieldCheck, Plus, Minus, Info, Activity, Globe, MessageCircleQuestion } from 'lucide-react';
+import { ArrowRight, Wallet, Lock, Copy, Check, ShieldCheck, Plus, Minus, Info, Activity, Globe, MessageCircleQuestion, Zap } from 'lucide-react';
+import { useWallet } from '../hooks/useWallet';
 
 interface TradeSectionProps {
   rates: RateInfo;
@@ -48,6 +49,7 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
   const [formRevealed, setFormRevealed] = useState(false);
   
   const formEndRef = useRef<HTMLDivElement>(null);
+  const { sendTransaction } = useWallet();
 
   const isBuy = mode === TradeMode.BUY;
   const rate = isBuy ? rates.buyRate : rates.sellRate;
@@ -113,7 +115,7 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
     };
 
     fetchPrices();
-    const interval = setInterval(fetchPrices, 30000); // Update every 30s
+    const interval = setInterval(fetchPrices, 2000); // Update every 2s
     return () => clearInterval(interval);
   }, []);
 
@@ -226,6 +228,20 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
       newDestinations[index] = { ...newDestinations[index], [field]: value };
       return newDestinations;
     });
+  };
+
+  const handlePayWithWallet = async () => {
+    if (!selectedCrypto) return;
+    
+    const toAddress = wallets[selectedCrypto];
+    const amountToSend = parseFloat(displayCrypto);
+    
+    const result = await sendTransaction(toAddress, amountToSend, selectedCrypto);
+    
+    if (result) {
+        setTxHash(result);
+        alert("Transaction sent! Hash copied to form.");
+    }
   };
 
   const handleSubmit = (isGuest: boolean = false) => {
@@ -556,19 +572,7 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
                         <div className="mt-6">
                             {!isLoggedIn ? (
                                 <div className="flex flex-col gap-3">
-                                    <button
-                                        onClick={onRequestLogin}
-                                        className="w-full py-4 rounded-2xl font-bold text-lg shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 bg-slate-700 text-white hover:bg-slate-600 shadow-slate-900/20"
-                                    >
-                                        {isBuy ? 'Log in to Buy' : 'Log in to Sell'}
-                                    </button>
                                     
-                                    <div className="flex items-center gap-4 px-2 opacity-70 my-2">
-                                        <div className="h-px bg-slate-600 flex-1"></div>
-                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">OR</span>
-                                        <div className="h-px bg-slate-600 flex-1"></div>
-                                    </div>
-
                                     <button
                                         onClick={() => handleSubmit(true)}
                                         disabled={!validateForm()}
@@ -576,6 +580,20 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
                                     >
                                         Continue as Guest <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1 opacity-70 group-hover:opacity-100" />
                                     </button>
+
+                                    <div className="flex items-center gap-4 px-2 opacity-70 my-2">
+                                        <div className="h-px bg-slate-600 flex-1"></div>
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">OR Log In</span>
+                                        <div className="h-px bg-slate-600 flex-1"></div>
+                                    </div>
+
+                                    <button
+                                        onClick={onRequestLogin}
+                                        className="w-full py-4 rounded-2xl font-bold text-lg shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 bg-slate-700 text-white hover:bg-slate-600 shadow-slate-900/20"
+                                    >
+                                        {isBuy ? 'Log in to Buy' : 'Log in to Sell'}
+                                    </button>
+                                    
                                 </div>
                             ) : (
                                 <button
@@ -639,6 +657,21 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
                               className="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-sm text-white focus:border-gt-gold outline-none font-mono"
                            />
                         </div>
+                     )}
+
+                     {/* Pay With Wallet Button (Added) */}
+                     {isBuy && selectedCrypto && selectedCrypto !== CryptoCurrency.USDT && (
+                        <button
+                            onClick={handlePayWithWallet}
+                            className={`w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all mb-2 shadow-lg ${
+                                selectedCrypto === CryptoCurrency.ETH ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-900/20' :
+                                selectedCrypto === CryptoCurrency.BTC ? 'bg-orange-500 hover:bg-orange-400 text-white shadow-orange-900/20' :
+                                'bg-blue-500 hover:bg-blue-400 text-white shadow-blue-900/20'
+                            }`}
+                        >
+                            <Wallet className="w-4 h-4" /> 
+                            {selectedCrypto === CryptoCurrency.ETH ? 'Pay via MetaMask' : 'Open Wallet App'}
+                        </button>
                      )}
 
                      <div className="flex gap-4">

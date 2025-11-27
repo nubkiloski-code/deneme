@@ -239,9 +239,13 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
     
     const result = await sendTransaction(toAddress, amountToSend, selectedCrypto);
     
-    if (result) {
+    if (result && selectedCrypto === CryptoCurrency.ETH) {
+        // ETH returns a hash immediately
         setTxHash(result);
-        alert("Transaction sent! Hash copied to form.");
+        alert("Transaction sent! Hash captured.");
+    } else if (result === 'EXTERNAL_APP') {
+        // BTC/LTC opened an app
+        alert("Wallet app opened. Please complete the transfer and paste the Transaction ID/Hash below.");
     }
   };
 
@@ -256,7 +260,10 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
       else if (selectedCrypto === CryptoCurrency.ETH) url = `ethereum:${toAddress}?value=${amountToSend}`; // Ethereum URI standard usually needs wei, but some apps take decimal
       else if (selectedCrypto === CryptoCurrency.LTC) url = `litecoin:${toAddress}?amount=${amountToSend}`;
       
-      if (url) window.open(url, '_self');
+      if (url) {
+          window.location.href = url; // More reliable than window.open for protocols
+          alert("Opening App... If nothing happens, please use Manual Transfer.");
+      }
   };
 
   const handleSubmit = (isGuest: boolean = false) => {

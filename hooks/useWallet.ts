@@ -21,13 +21,32 @@ export const useWallet = () => {
     }
 
     try {
+      // Force permission request to ensure the wallet "Asks" every time
+      // This replaces the silent 'eth_requestAccounts' if permissions already exist
+      await ethereum.request({
+        method: "wallet_requestPermissions",
+        params: [{ eth_accounts: {} }]
+      });
+
       const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
       if (accounts && accounts.length > 0) {
         setUserWalletAddress(accounts[0]);
       }
-    } catch (error) {
-      console.error("User rejected connection", error);
-      // Don't alert if user just closed the modal, only on actual error
+    } catch (error: any) {
+      // Fallback for wallets that don't support wallet_requestPermissions (like some mobile wallets)
+      if (error.code === 4001) {
+          console.log("User rejected connection");
+      } else {
+          console.warn("wallet_requestPermissions failed, falling back to standard request");
+          try {
+            const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
+            if (accounts && accounts.length > 0) {
+                setUserWalletAddress(accounts[0]);
+            }
+          } catch (e) {
+            console.error("Connection error", e);
+          }
+      }
     }
   };
 
@@ -46,7 +65,6 @@ export const useWallet = () => {
             }
             
             // Convert ETH to Wei (18 decimals)
-            // Note: This is a basic conversion. For production, use ethers.js or viem
             const weiValue = "0x" + (amount * 1e18).toString(16);
 
             const txHash = await ethereum.request({
@@ -62,11 +80,14 @@ export const useWallet = () => {
             return txHash;
         } 
         else if (currency === CryptoCurrency.BTC) {
-            window.location.href = `bitcoin:${toAddress}?amount=${amount}`;
+            // Use window.open for protocols to avoid unmounting React components
+            const url = `bitcoin:${toAddress}?amount=${amount}`;
+            window.open(url, '_self');
             return null;
         }
         else if (currency === CryptoCurrency.LTC) {
-            window.location.href = `litecoin:${toAddress}?amount=${amount}`;
+            const url = `litecoin:${toAddress}?amount=${amount}`;
+            window.open(url, '_self');
             return null;
         }
         
@@ -80,17 +101,9 @@ export const useWallet = () => {
   useEffect(() => {
     const ethereum = (window as any).ethereum;
     if (ethereum) {
-      // 1. Check if already connected (Auto-connect on reload)
-      ethereum.request({ method: 'eth_accounts' })
-        .then((accounts: string[]) => {
-          if (accounts && accounts.length > 0) {
-            console.log("Wallet auto-connected:", accounts[0]);
-            setUserWalletAddress(accounts[0]);
-          }
-        })
-        .catch((err: any) => console.error("Error checking wallet connection:", err));
-
-      // 2. Listen for account changes
+      // NOTE: Auto-connect removed as per request to "always ask"
+      
+      // Listen for account changes (e.g. if user switches account in extension)
       const handleAccountsChanged = (accounts: string[]) => {
         if (accounts && accounts.length > 0) {
           console.log("Wallet changed:", accounts[0]);

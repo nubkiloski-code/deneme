@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { TradeMode, CryptoCurrency, RateInfo, WalletConfig, Order, OrderDestination } from '../types';
 import CryptoSelector from './CryptoSelector';
-import { ArrowRight, Wallet, Lock, Copy, Check, ShieldCheck, Plus, Minus, Info, Activity, Globe, MessageCircleQuestion, Zap } from 'lucide-react';
+import { ArrowRight, Wallet, Lock, Copy, Check, ShieldCheck, Plus, Minus, Info, Activity, Globe, MessageCircleQuestion, Zap, ExternalLink, Loader2, XCircle, CheckCircle } from 'lucide-react';
 import { useWallet } from '../hooks/useWallet';
 
 interface TradeSectionProps {
@@ -43,6 +43,7 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
 
   const [step, setStep] = useState<1 | 2>(1);
   const [txHash, setTxHash] = useState('');
+  const [txStatus, setTxStatus] = useState<'idle' | 'validating' | 'valid' | 'invalid'>('idle');
   const [payoutAddress, setPayoutAddress] = useState('');
   const [copied, setCopied] = useState(false);
   const [formRevealed, setFormRevealed] = useState(false);
@@ -101,7 +102,6 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
             }
         });
         if (!response.ok) {
-           // Silently fail if rate limited to avoid console spam
            return; 
         }
         const data = await response.json();
@@ -115,15 +115,40 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
           [CryptoCurrency.USDT]: data.tether.usd,
         }));
       } catch (error) {
-        // Suppress error logging for cleaner console during rate limits
+        // Suppress error logging
       }
     };
 
     fetchPrices();
-    // Set to 60 seconds (1 minute) to be safe with public API rate limits
+    // 60 seconds interval
     const interval = setInterval(fetchPrices, 60000); 
     return () => clearInterval(interval);
   }, []);
+
+  // TX Hash Validation Logic
+  useEffect(() => {
+    if (!txHash) {
+      setTxStatus('idle');
+      return;
+    }
+
+    setTxStatus('validating');
+    const timer = setTimeout(() => {
+      let isValid = false;
+      const cleanHash = txHash.trim();
+
+      if (selectedCrypto === CryptoCurrency.ETH) {
+        isValid = /^0x([A-Fa-f0-9]{64})$/.test(cleanHash);
+      } else if (selectedCrypto === CryptoCurrency.BTC || selectedCrypto === CryptoCurrency.LTC || selectedCrypto === CryptoCurrency.USDT) {
+        // BTC/LTC/Tron transaction hashes are 64 hex characters
+        isValid = /^[a-fA-F0-9]{64}$/.test(cleanHash);
+      }
+
+      setTxStatus(isValid ? 'valid' : 'invalid');
+    }, 600); // Simulate network check delay
+
+    return () => clearTimeout(timer);
+  }, [txHash, selectedCrypto]);
 
   const handleCryptoSelection = (crypto: CryptoCurrency) => {
     setSelectedCrypto(crypto);
@@ -159,7 +184,6 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
     const numVal = parseFloat(val);
     if (!isNaN(numVal)) {
         // Reverse calc: USD -> DLs
-        // totalUSD = amount * rate  =>  amount = totalUSD / rate
         const newAmount = numVal / rate;
         setAmount(newAmount);
     } else if (val === '') {
@@ -292,7 +316,18 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
       setWorldCount(5);
       setDestinations(Array(5).fill({ growId: '', worldName: '' }));
       setFormRevealed(false);
-      setSelectedCrypto(null); // Reset selection
+      setSelectedCrypto(null); 
+    }
+  };
+
+  const getExplorerLink = (hash: string) => {
+    if (!selectedCrypto || !hash) return '#';
+    switch (selectedCrypto) {
+      case CryptoCurrency.BTC: return `https://mempool.space/tx/${hash}`;
+      case CryptoCurrency.ETH: return `https://etherscan.io/tx/${hash}`;
+      case CryptoCurrency.LTC: return `https://blockchair.com/litecoin/transaction/${hash}`;
+      case CryptoCurrency.USDT: return `https://tronscan.org/#/transaction/${hash}`;
+      default: return '#';
     }
   };
 
@@ -398,7 +433,7 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
                       <label className="text-xs font-bold text-slate-500 uppercase ml-1 mb-1 block">Select Payment Method</label>
                       <CryptoSelector selected={selectedCrypto} onSelect={handleCryptoSelection} />
                       
-                      {/* Contact Admin Helper Text - UPDATED COLOR AND ICON */}
+                      {/* Contact Admin Helper Text */}
                       <div className="text-center mt-3">
                         <button 
                             onClick={onOpenSupport}
@@ -578,7 +613,6 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
                         <div className="mt-6">
                             {!isLoggedIn ? (
                                 <div className="flex flex-col gap-3">
-                                    
                                     <button
                                         onClick={() => handleSubmit(true)}
                                         disabled={!validateForm()}
@@ -655,17 +689,45 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
                      {isBuy && (
                         <div className="bg-slate-800/50 rounded-2xl p-4 border border-slate-700">
                            <label className="text-xs font-bold text-slate-500 uppercase ml-1 mb-2 block">Transaction Hash (TXID)</label>
-                           <input 
-                              type="text"
-                              value={txHash}
-                              onChange={(e) => setTxHash(e.target.value)}
-                              placeholder="Paste your transaction ID here..."
-                              className="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-sm text-white focus:border-gt-gold outline-none font-mono"
-                           />
+                           <div className="relative">
+                             <input 
+                                type="text"
+                                value={txHash}
+                                onChange={(e) => setTxHash(e.target.value)}
+                                placeholder="Paste your transaction ID here..."
+                                className={`w-full bg-slate-900 border rounded-xl px-4 py-3 text-sm text-white outline-none font-mono transition-all pr-10
+                                  ${txStatus === 'valid' ? 'border-green-500/50 focus:border-green-500' : 
+                                    txStatus === 'invalid' ? 'border-red-500/50 focus:border-red-500' : 
+                                    'border-slate-600 focus:border-gt-gold'}`}
+                             />
+                             <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                               {txStatus === 'validating' && <Loader2 className="w-4 h-4 text-slate-400 animate-spin" />}
+                               {txStatus === 'valid' && <CheckCircle className="w-4 h-4 text-green-500" />}
+                               {txStatus === 'invalid' && <XCircle className="w-4 h-4 text-red-500" />}
+                             </div>
+                           </div>
+                           
+                           {/* Validation Feedback & Explorer Link */}
+                           <div className="mt-2 flex justify-between items-center min-h-[20px]">
+                              <div>
+                                {txStatus === 'valid' && <span className="text-[10px] text-green-400 font-bold">Format Valid</span>}
+                                {txStatus === 'invalid' && <span className="text-[10px] text-red-400 font-bold">Invalid Hash Format</span>}
+                              </div>
+                              {txHash && txStatus !== 'invalid' && (
+                                <a 
+                                  href={getExplorerLink(txHash)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[10px] text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors"
+                                >
+                                  Check on Explorer <ExternalLink className="w-3 h-3" />
+                                </a>
+                              )}
+                           </div>
                         </div>
                      )}
 
-                     {/* Pay With Wallet Button (Added) */}
+                     {/* Pay With Wallet Button */}
                      {isBuy && selectedCrypto && selectedCrypto !== CryptoCurrency.USDT && (
                         <button
                             onClick={handlePayWithWallet}
@@ -689,7 +751,7 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
                         </button>
                         <button
                            onClick={() => handleSubmit(false)}
-                           disabled={isBuy && !txHash}
+                           disabled={isBuy && (!txHash || txStatus === 'invalid')}
                            className={`flex-[2] py-4 rounded-xl font-bold text-white shadow-lg flex items-center justify-center gap-2 transition-all hover:scale-[1.02] ${isBuy ? 'bg-green-600 hover:bg-green-500' : 'bg-blue-600 hover:bg-blue-500'} disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none`}
                         >
                            {isBuy ? 'I Have Sent Payment' : 'I Have Dropped Items'} <Check className="w-5 h-5" />

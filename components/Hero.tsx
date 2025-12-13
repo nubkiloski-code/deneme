@@ -15,8 +15,7 @@ const Hero: React.FC = () => {
         </h1>
 
         <p className="text-slate-400 text-base max-w-2xl mx-auto mb-4 leading-relaxed font-light animate-in fade-in slide-in-from-bottom-8 duration-700 delay-200">
-          Nub.market is the premium crypto-only marketplace for Growtopia items. 
-          Use our "Safe Mode" to distribute transactions and protect your account.
+            POYRAZ KÖR GÖZÜNÜ SİKEYİM İKİ SAATTİR AMINAKOYAYIM BE
         </p>
 
         {/* Main Stats Row */}

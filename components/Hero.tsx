@@ -10,7 +10,7 @@ const Hero: React.FC = () => {
         <h1 className="text-4xl md:text-6xl font-bold text-white mb-3 leading-tight tracking-tight drop-shadow-2xl animate-in fade-in slide-in-from-bottom-6 duration-700">
           The Safest Way to <br />
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-gt-gold via-yellow-200 to-gt-gold animate-gradient-x">
-            Trade Diamond Locks
+           Fuck Poyraz by Diamond Locks
           </span>
         </h1>
 

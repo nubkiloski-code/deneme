@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Order, OrderStatus, RateInfo, WalletConfig, CryptoCurrency, ChatMessage, EmailConfig, FirebaseConfig, UserAccount } from '../types';
-import { Settings, MessageSquare, ShoppingCart, Save, Check, X, Shield, RefreshCw, LogIn, UserPlus, Lock, Power, PowerOff, User, Mail, ArrowRight, LogOut, Loader2, RotateCcw, FileCode, Flame, ArrowLeft, Send, Bot, Globe, LogIn as SignInIcon } from 'lucide-react';
+import { Settings, MessageSquare, ShoppingCart, Save, Check, X, Shield, RefreshCw, LogIn, UserPlus, Lock, Power, PowerOff, User, Mail, ArrowRight, LogOut, Loader2, RotateCcw, FileCode, Flame, ArrowLeft, Send, Bot, Globe, LogIn as SignInIcon, ChevronRight } from 'lucide-react';
 
 interface AdminPanelProps {
   orders: Order[];
@@ -20,7 +20,7 @@ interface AdminPanelProps {
   onUpdateEmailConfig: (config: EmailConfig) => void;
   onUpdateFirebaseConfig: (config: FirebaseConfig) => void;
   onUpdateOrderStatus: (orderId: string, status: OrderStatus) => void;
-  onAdminSendMessage: (text: string) => void;
+  onAdminSendMessage: (text: string, targetUserId?: string) => void;
   onToggleLiveSupport: (isActive: boolean) => void;
   onClose: () => void;
   onLoginSuccess: (user: UserAccount) => void;
@@ -65,6 +65,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   const [notification, setNotification] = useState<{title: string, message: string} | null>(null);
 
   const [activeTab, setActiveTab] = useState<'orders' | 'settings' | 'support'>('orders');
+  const [selectedChatUserId, setSelectedChatUserId] = useState<string | null>(null);
   const [localRates, setLocalRates] = useState(rates);
   const [localDropWorld, setLocalDropWorld] = useState(dropWorldName);
   
@@ -76,6 +77,27 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
     if (!currentUser) return [];
     return orders.filter(o => o.userEmail === currentUser.email);
   }, [orders, currentUser, userRole]);
+
+  // Derive unique active chat conversations
+  const chatThreads = useMemo(() => {
+    const threadsMap = new Map<string, { userId: string, userName: string, lastMessage: string, timestamp: number }>();
+    
+    chatMessages.forEach(msg => {
+      if (msg.userId === 'system' || msg.userId === 'global') return;
+      
+      const existing = threadsMap.get(msg.userId);
+      if (!existing || msg.timestamp > existing.timestamp) {
+        threadsMap.set(msg.userId, {
+          userId: msg.userId,
+          userName: msg.userName,
+          lastMessage: msg.text,
+          timestamp: msg.timestamp
+        });
+      }
+    });
+
+    return Array.from(threadsMap.values()).sort((a, b) => b.timestamp - a.timestamp);
+  }, [chatMessages]);
 
   useEffect(() => {
     if (currentUser) {
@@ -91,7 +113,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
     if (activeTab === 'support') {
       chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [activeTab, chatMessages]);
+  }, [activeTab, chatMessages, selectedChatUserId]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -128,10 +150,15 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   };
 
   const handleAdminReply = () => {
-    if (!adminReply.trim()) return;
-    onAdminSendMessage(adminReply);
+    if (!adminReply.trim() || !selectedChatUserId) return;
+    onAdminSendMessage(adminReply, selectedChatUserId);
     setAdminReply('');
   };
+
+  const activeMessages = useMemo(() => {
+    if (!selectedChatUserId) return [];
+    return chatMessages.filter(m => m.userId === selectedChatUserId || m.userId === 'global' || m.userId === 'system');
+  }, [chatMessages, selectedChatUserId]);
 
   if (userRole === 'guest') {
     return (
@@ -266,7 +293,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
         )}
 
         <main className="flex-1 overflow-y-auto bg-[#0c111d] relative">
-          <div className="h-full flex flex-col p-10 max-w-6xl mx-auto">
+          <div className={`h-full flex flex-col ${activeTab !== 'support' ? 'p-10 max-w-6xl mx-auto' : ''}`}>
             {activeTab === 'orders' && (
               <div className="grid gap-6">
                 <div className="flex justify-between items-end mb-4">
@@ -355,84 +382,133 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
             )}
 
             {activeTab === 'support' && userRole === 'admin' && (
-                <div className="flex flex-col h-full animate-in fade-in duration-300">
-                    <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-3xl font-bold text-white">Live Support Manager</h2>
-                        <div className="flex items-center gap-3">
-                            <span className="text-[10px] font-bold text-slate-500 uppercase">Chat Status:</span>
-                            <div className="bg-slate-800 px-3 py-1 rounded-full flex items-center gap-2 border border-slate-700">
-                                <span className={`w-2 h-2 rounded-full ${isLiveSupport ? 'bg-green-500 animate-pulse' : 'bg-slate-600'}`}></span>
-                                <span className="text-[10px] font-black uppercase text-slate-300">{isLiveSupport ? 'Live' : 'Auto-Bot Only'}</span>
-                            </div>
+                <div className="flex h-full animate-in fade-in duration-300">
+                    {/* Conversations Sidebar */}
+                    <div className="w-80 bg-slate-900 border-r border-slate-800 flex flex-col">
+                        <div className="p-6 border-b border-slate-800">
+                            <h3 className="text-lg font-bold flex items-center gap-2">
+                                <MessageSquare className="w-5 h-5 text-gt-gold" /> Chats
+                            </h3>
+                            <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">Manage active threads</p>
+                        </div>
+                        <div className="flex-1 overflow-y-auto">
+                            {chatThreads.length === 0 ? (
+                                <div className="p-8 text-center">
+                                    <p className="text-sm text-slate-600">No active conversations yet.</p>
+                                </div>
+                            ) : (
+                                chatThreads.map(thread => (
+                                    <button
+                                        key={thread.userId}
+                                        onClick={() => setSelectedChatUserId(thread.userId)}
+                                        className={`w-full p-4 flex flex-col gap-1 border-b border-slate-800 transition-colors text-left ${selectedChatUserId === thread.userId ? 'bg-slate-800' : 'hover:bg-slate-800/50'}`}
+                                    >
+                                        <div className="flex justify-between items-center">
+                                            <span className={`font-bold text-sm ${thread.userId.startsWith('sess_') ? 'text-blue-400' : 'text-gt-gold'}`}>
+                                                {thread.userName}
+                                            </span>
+                                            <span className="text-[9px] text-slate-600">
+                                                {new Date(thread.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
+                                        </div>
+                                        <p className="text-xs text-slate-500 truncate w-full">{thread.lastMessage}</p>
+                                    </button>
+                                ))
+                            )}
                         </div>
                     </div>
 
-                    <div className="flex-1 bg-slate-900 border border-slate-800 rounded-[32px] overflow-hidden flex flex-col shadow-2xl">
-                        {/* Chat Messages */}
-                        <div className="flex-1 overflow-y-auto p-8 space-y-6 bg-slate-950/20">
-                            {chatMessages.map((msg) => (
-                                <div key={msg.id} className={`flex ${msg.role === 'admin' ? 'justify-end' : 'justify-start'}`}>
-                                    <div className={`max-w-[70%] flex flex-col ${msg.role === 'admin' ? 'items-end' : 'items-start'}`}>
-                                        <div className="flex items-center gap-2 mb-1.5 px-1">
-                                            {msg.role === 'model' && <Bot className="w-3 h-3 text-gt-gold" />}
-                                            {msg.role === 'user' && <User className="w-3 h-3 text-blue-400" />}
-                                            {msg.role === 'admin' && <Shield className="w-3 h-3 text-red-500" />}
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
-                                                {msg.role === 'model' ? 'LockBot (AI)' : msg.role === 'admin' ? 'Support Agent' : 'User'}
-                                            </span>
+                    {/* Chat Window */}
+                    <div className="flex-1 flex flex-col bg-[#0c111d]">
+                        {selectedChatUserId ? (
+                            <>
+                                <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${selectedChatUserId.startsWith('sess_') ? 'bg-blue-500/20 text-blue-400' : 'bg-gt-gold/20 text-gt-gold'}`}>
+                                            <User className="w-6 h-6" />
                                         </div>
-                                        <div className={`px-5 py-3.5 rounded-2xl text-sm leading-relaxed ${
-                                            msg.role === 'admin' 
-                                            ? 'bg-red-500/10 text-white border border-red-500/20 rounded-tr-none' 
-                                            : msg.role === 'model'
-                                            ? 'bg-slate-800 text-slate-300 border border-slate-700 rounded-tl-none'
-                                            : 'bg-blue-500/10 text-blue-100 border border-blue-500/20 rounded-tl-none font-medium'
-                                        }`}>
-                                            {msg.text}
+                                        <div>
+                                            <h4 className="font-bold text-white">{chatThreads.find(t => t.userId === selectedChatUserId)?.userName}</h4>
+                                            <div className="flex items-center gap-1.5 mt-0.5">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                                                <span className="text-[10px] text-slate-500 font-bold uppercase">Active Session</span>
+                                            </div>
                                         </div>
-                                        <span className="text-[9px] text-slate-600 mt-1.5 font-bold">
-                                            {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                        <button 
+                                            onClick={() => onToggleLiveSupport(!isLiveSupport)}
+                                            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${isLiveSupport ? 'bg-green-500/10 text-green-400 border border-green-500/30' : 'bg-slate-800 text-slate-500 border border-slate-700'}`}
+                                        >
+                                            {isLiveSupport ? <Power className="w-3 h-3" /> : <PowerOff className="w-3 h-3" />}
+                                            {isLiveSupport ? 'Live Support ON' : 'Bot Handles First'}
+                                        </button>
                                     </div>
                                 </div>
-                            ))}
-                            <div ref={chatEndRef} />
-                        </div>
 
-                        {/* Reply Box */}
-                        <div className="p-6 bg-slate-900 border-t border-slate-800">
-                            <div className="relative group">
-                                <textarea 
-                                    value={adminReply}
-                                    onChange={(e) => setAdminReply(e.target.value)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter' && !e.shiftKey) {
-                                            e.preventDefault();
-                                            handleAdminReply();
-                                        }
-                                    }}
-                                    placeholder="Type your official response here... (Enter to send)"
-                                    className="w-full bg-[#1a2332] border border-slate-700/50 p-5 rounded-2xl text-white outline-none focus:border-red-500/50 focus:ring-4 focus:ring-red-500/5 transition-all placeholder-slate-600 font-medium text-sm min-h-[100px] resize-none pr-20"
-                                />
-                                <button 
-                                    onClick={handleAdminReply}
-                                    disabled={!adminReply.trim()}
-                                    className="absolute right-4 bottom-4 bg-red-600 text-white p-3 rounded-xl hover:bg-red-500 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-lg"
-                                >
-                                    <Send className="w-5 h-5" />
-                                </button>
+                                <div className="flex-1 overflow-y-auto p-8 space-y-6">
+                                    {activeMessages.map((msg) => (
+                                        <div key={msg.id} className={`flex ${msg.role === 'admin' ? 'justify-end' : 'justify-start'}`}>
+                                            <div className={`max-w-[70%] flex flex-col ${msg.role === 'admin' ? 'items-end' : 'items-start'}`}>
+                                                <div className="flex items-center gap-2 mb-1.5 px-1">
+                                                    {msg.role === 'model' && <Bot className="w-3 h-3 text-gt-gold" />}
+                                                    {msg.role === 'user' && <User className="w-3 h-3 text-blue-400" />}
+                                                    {msg.role === 'admin' && <Shield className="w-3 h-3 text-red-500" />}
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                                                        {msg.userName}
+                                                    </span>
+                                                </div>
+                                                <div className={`px-5 py-3.5 rounded-2xl text-sm leading-relaxed shadow-sm ${
+                                                    msg.role === 'admin' 
+                                                    ? 'bg-red-600 text-white rounded-tr-none' 
+                                                    : msg.role === 'model'
+                                                    ? 'bg-slate-800 text-slate-300 border border-slate-700 rounded-tl-none'
+                                                    : 'bg-slate-800 text-white border border-slate-700 rounded-tl-none font-medium'
+                                                }`}>
+                                                    {msg.text}
+                                                </div>
+                                                <span className="text-[9px] text-slate-600 mt-1.5 font-bold">
+                                                    {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    <div ref={chatEndRef} />
+                                </div>
+
+                                <div className="p-6 bg-slate-900/80 border-t border-slate-800">
+                                    <div className="relative group">
+                                        <textarea 
+                                            value={adminReply}
+                                            onChange={(e) => setAdminReply(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && !e.shiftKey) {
+                                                    e.preventDefault();
+                                                    handleAdminReply();
+                                                }
+                                            }}
+                                            placeholder={`Reply to ${chatThreads.find(t => t.userId === selectedChatUserId)?.userName}...`}
+                                            className="w-full bg-[#1a2332] border border-slate-700/50 p-5 rounded-2xl text-white outline-none focus:border-gt-gold/50 transition-all placeholder-slate-600 font-medium text-sm min-h-[80px] resize-none pr-20 shadow-inner"
+                                        />
+                                        <button 
+                                            onClick={handleAdminReply}
+                                            disabled={!adminReply.trim()}
+                                            className="absolute right-4 bottom-4 bg-gt-gold text-slate-950 p-3 rounded-xl hover:bg-yellow-400 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-lg active:scale-95"
+                                        >
+                                            <Send className="w-5 h-5" />
+                                        </button>
+                                    </div>
+                                </div>
+                            </>
+                        ) : (
+                            <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
+                                <div className="w-20 h-20 bg-slate-900 rounded-full flex items-center justify-center mb-6 border border-slate-800 shadow-xl">
+                                    <MessageSquare className="w-10 h-10 text-slate-700" />
+                                </div>
+                                <h3 className="text-xl font-bold text-white mb-2">Select a Conversation</h3>
+                                <p className="text-slate-500 max-w-sm">Click on a user on the left to start chatting with them. You can manage multiple trades simultaneously.</p>
                             </div>
-                            <div className="mt-3 flex items-center justify-between">
-                                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Shift+Enter for new line</p>
-                                <button 
-                                    onClick={() => onToggleLiveSupport(!isLiveSupport)}
-                                    className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-colors ${isLiveSupport ? 'text-red-400 hover:text-red-300' : 'text-green-400 hover:text-green-300'}`}
-                                >
-                                    {isLiveSupport ? <PowerOff className="w-3 h-3" /> : <Power className="w-3 h-3" />}
-                                    {isLiveSupport ? 'Disable Live Chat' : 'Go Online'}
-                                </button>
-                            </div>
-                        </div>
+                        )}
                     </div>
                 </div>
             )}

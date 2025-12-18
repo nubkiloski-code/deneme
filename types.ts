@@ -43,6 +43,8 @@ export interface ChatMessage {
   role: 'user' | 'model' | 'admin';
   text: string;
   timestamp: number;
+  userId: string; // Unique ID for the conversation thread
+  userName: string; // Display name for the user (e.g., "User1" or "Alex")
   isError?: boolean;
 }
 

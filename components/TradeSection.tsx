@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { TradeMode, CryptoCurrency, RateInfo, WalletConfig, Order, OrderDestination } from '../types';
 import CryptoSelector from './CryptoSelector';
-import { ArrowRight, Wallet, Lock, Copy, Check, ShieldCheck, Plus, Minus, Info, Activity, Globe, ExternalLink, Loader2, XCircle, CheckCircle } from 'lucide-react';
+import { ArrowRight, Wallet, Lock, Copy, Check, ShieldCheck, Plus, Minus, Info, Activity, Globe, ExternalLink, Loader2, XCircle, CheckCircle, Tag, ShoppingCart } from 'lucide-react';
 import { useWallet } from '../hooks/useWallet';
 
 interface TradeSectionProps {
   rates: RateInfo;
   wallets: WalletConfig;
+  dropWorldName: string;
   userWalletAddress: string;
   onOrderSubmit: (orderData: Partial<Order>) => void;
   isLoggedIn: boolean;
@@ -15,7 +16,7 @@ interface TradeSectionProps {
   initialMode?: TradeMode;
 }
 
-const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletAddress, onOrderSubmit, isLoggedIn, onRequestLogin, onOpenSupport, initialMode = TradeMode.BUY }) => {
+const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, dropWorldName, userWalletAddress, onOrderSubmit, isLoggedIn, onRequestLogin, onOpenSupport, initialMode = TradeMode.BUY }) => {
   const [mode, setMode] = useState<TradeMode>(initialMode);
   const [amount, setAmount] = useState<number>(10); 
   const [selectedCrypto, setSelectedCrypto] = useState<CryptoCurrency | null>(null);
@@ -44,7 +45,7 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
   const [txStatus, setTxStatus] = useState<'idle' | 'validating' | 'valid' | 'invalid'>('idle');
   const [payoutAddress, setPayoutAddress] = useState('');
   const [copied, setCopied] = useState(false);
-  const [formRevealed, setFormRevealed] = useState(false);
+  const [formRevealed, setFormRevealed] = useState(initialMode === TradeMode.SELL);
   
   const formEndRef = useRef<HTMLDivElement>(null);
   const { sendTransaction } = useWallet();
@@ -69,8 +70,8 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
     setStep(1); 
     if (initialMode === TradeMode.SELL) {
         setFormRevealed(true);
-    } else {
-        setFormRevealed(selectedCrypto !== null);
+    } else if (selectedCrypto) {
+        setFormRevealed(true);
     }
   }, [initialMode]);
 
@@ -132,12 +133,10 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
 
   const handleCryptoSelection = (crypto: CryptoCurrency) => {
     setSelectedCrypto(crypto);
-    if (!formRevealed) {
-      setFormRevealed(true);
-      setTimeout(() => {
-        formEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 150);
-    }
+    setFormRevealed(true);
+    setTimeout(() => {
+      formEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 150);
   };
 
   const handleCryptoInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -228,7 +227,7 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
         txHash: isBuy ? txHash : undefined,
         payoutAddress: !isBuy ? payoutAddress : undefined,
         growId: isBuy ? (isSafeMode ? "Multiple (Safe Mode)" : growId) : "Market Deposit",
-        worldName: isBuy ? (isSafeMode ? "See Destinations" : worldName) : "MARKET123",
+        worldName: isBuy ? (isSafeMode ? "See Destinations" : worldName) : dropWorldName,
         destinations: isSafeMode ? destinations : undefined
       });
       setStep(1); setTxHash(''); setPayoutAddress(''); setAmount(10); setGrowId(''); setWorldName(''); setWorldCount(5); setFormRevealed(false); setSelectedCrypto(null); 
@@ -246,7 +245,7 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
     }
   };
 
-  const fullAddressToDisplay = isBuy && selectedCrypto ? wallets[selectedCrypto] : 'MARKET123';
+  const fullAddressToDisplay = isBuy && selectedCrypto ? wallets[selectedCrypto] : dropWorldName;
   const displayAddress = fullAddressToDisplay.length > 20 
     ? `${fullAddressToDisplay.slice(0, 14)}...${fullAddressToDisplay.slice(-6)}`
     : fullAddressToDisplay;
@@ -257,28 +256,31 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
         <div className="bg-gt-card/90 backdrop-blur-xl rounded-[32px] border border-slate-700/50 shadow-2xl overflow-hidden pt-4">
           
           <div className="flex justify-center mb-6">
-            <div className="bg-slate-900/50 p-1 rounded-2xl border border-slate-800 flex gap-1">
+            <div className="bg-slate-900/50 p-1.5 rounded-2xl border border-slate-800 flex gap-1 shadow-inner">
                 <button 
-                    onClick={() => setMode(TradeMode.BUY)}
+                    onClick={() => { setMode(TradeMode.BUY); setStep(1); }}
                     className={`px-8 py-3 rounded-xl font-bold text-sm transition-all flex items-center gap-2 ${isBuy ? 'bg-gt-gold text-slate-950 shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
                 >
-                    Buy DLs
+                    <ShoppingCart className="w-4 h-4" /> Buy DLs
                 </button>
                 <button 
-                    onClick={() => setMode(TradeMode.SELL)}
+                    onClick={() => { setMode(TradeMode.SELL); setStep(1); }}
                     className={`px-8 py-3 rounded-xl font-bold text-sm transition-all flex items-center gap-2 ${!isBuy ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
                 >
-                    Sell to Us
+                    <Tag className="w-4 h-4" /> Sell to Us
                 </button>
             </div>
           </div>
 
-          <div className="flex justify-center items-center gap-2 mb-4">
-            <div className={`px-2 py-0.5 rounded-full text-[10px] font-bold tracking-widest uppercase flex items-center gap-1.5 ${isBuy ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'}`}>
-              <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${isBuy ? 'bg-green-400' : 'bg-blue-400'}`}></span>
-              System Operational
-            </div>
+          <div className="text-center px-6 mb-4">
+             <h2 className={`text-2xl font-black uppercase tracking-tight ${isBuy ? 'text-gt-gold' : 'text-blue-400'}`}>
+                {isBuy ? 'Purchase DLs' : 'Cash Out DLs'}
+             </h2>
+             <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">
+                {isBuy ? 'Safe & Automated Delivery' : 'Instant Crypto Payouts'}
+             </p>
           </div>
+
           <div className="px-4 pb-6 md:px-6 lg:px-12 lg:pb-12 relative">
              <div className="max-w-2xl mx-auto flex flex-col pt-0">
                 {step === 1 ? (
@@ -332,7 +334,7 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
                               <div className="space-y-6">
                                 <div onClick={() => setIsSafeMode(!isSafeMode)} className={`group border cursor-pointer rounded-2xl p-1 transition-all ${isSafeMode ? 'bg-emerald-500/10 border-emerald-500' : 'bg-slate-800/30 border-slate-700 hover:border-slate-500'}`}>
                                     <div className="flex items-start md:items-center gap-3 p-3 md:p-4 relative z-10">
-                                    <div className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center ${isSafeMode ? 'bg-emerald-500 text-white' : 'bg-slate-700 text-slate-400'}`}><ShieldCheck className="w-4 h-4 md:w-5 md:h-5" /></div>
+                                    <div className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center ${isSafeMode ? 'bg-emerald-500 text-white' : 'bg-slate-700 text-slate-400'}`}><ShieldCheck className="w-4 h-4 md:w-5 h-5" /></div>
                                     <div className="flex-1"><h4 className={`font-bold text-xs md:text-sm ${isSafeMode ? 'text-emerald-400' : 'text-white'}`}>Looking for a Safer Way?</h4><p className="text-[10px] md:text-xs text-slate-400 mt-0.5">Split order across multiple worlds to prevent bans.</p></div>
                                     <div className={`w-5 h-5 md:w-6 md:h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${isSafeMode ? 'border-emerald-500 bg-emerald-500' : 'border-slate-600'}`}>{isSafeMode && <Check className="w-3 h-3 text-white" />}</div>
                                     </div>

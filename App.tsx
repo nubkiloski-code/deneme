@@ -195,9 +195,11 @@ function App() {
     const userMsg: ChatMessage = { id: Date.now().toString(), role: 'user', text, timestamp: Date.now() };
     setMessages(prev => [...prev, userMsg]);
 
+    // If live support is active, admin handles responses, not the bot
     if (isLiveSupport) return;
 
     setIsChatLoading(true);
+    // history is ignored by the new static bot service but kept for interface compatibility
     const history = messages.slice(-5).map(m => `${m.role}: ${m.text}`);
     const responseText = await sendMessageToGemini(text, history, rates);
     

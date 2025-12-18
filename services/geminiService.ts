@@ -2,30 +2,16 @@
 import { GoogleGenAI } from "@google/genai";
 import { RateInfo } from "../types";
 
-// Safer access to process.env to prevent crashes in browser environments
-const getApiKey = () => {
-  try {
-    return process.env.API_KEY || '';
-  } catch {
-    return '';
-  }
-};
-
-const API_KEY = getApiKey();
-
 export const sendMessageToGemini = async (
   message: string, 
   history: string[], 
   rates: RateInfo
 ): Promise<string> => {
-  if (!API_KEY) {
-    return "Error: API Key not found. Please configure your environment.";
-  }
-
   try {
-    // Initialize Gemini Client inside the call or ensure it's ready
-    const ai = new GoogleGenAI({ apiKey: API_KEY });
-    const model = 'gemini-3-flash-preview';
+    // Access process.env.API_KEY directly as per guidelines.
+    // This assumes the key is pre-configured and valid in the environment.
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const modelName = 'gemini-3-flash-preview';
     
     const systemInstruction = `You are "LockBot", the automated support assistant for Nub.market. 
     This website allows users to Buy and Sell Growtopia Diamond Locks (DLs) using Cryptocurrency ONLY.
@@ -45,17 +31,20 @@ export const sendMessageToGemini = async (
     `;
 
     const response = await ai.models.generateContent({
-      model: model,
+      model: modelName,
       contents: `Context History: ${history.join('\n')}\n\nUser Question: ${message}`,
       config: {
         systemInstruction: systemInstruction,
-        maxOutputTokens: 300,
+        maxOutputTokens: 500,
       }
     });
 
+    // Use .text property directly as per guidelines
     return response.text || "I'm having trouble connecting to the server right now.";
   } catch (error) {
     console.error("Gemini API Error:", error);
-    return "Sorry, I am currently experiencing high traffic. Please try again later.";
+    // Return a graceful failure message instead of environment error
+    return "I'm having trouble connecting to my brain right now. Please try again in a few seconds!";
   }
 };
+

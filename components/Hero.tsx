@@ -10,12 +10,13 @@ const Hero: React.FC = () => {
         <h1 className="text-4xl md:text-6xl font-bold text-white mb-3 leading-tight tracking-tight drop-shadow-2xl animate-in fade-in slide-in-from-bottom-6 duration-700">
           The Safest Way to <br />
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-gt-gold via-yellow-200 to-gt-gold animate-gradient-x">
-           Fuck Poyraz by Diamond Locks
+            Trade Diamond Locks
           </span>
         </h1>
 
         <p className="text-slate-400 text-base max-w-2xl mx-auto mb-4 leading-relaxed font-light animate-in fade-in slide-in-from-bottom-8 duration-700 delay-200">
-            POYRAZ KÖR GÖZÜNÜ SİKEYİM İKİ SAATTİR AMINAKOYAYIM BE
+          Nub.market is the premium crypto-only marketplace for Growtopia items. 
+          Use our "Safe Mode" to distribute transactions and protect your account.
         </p>
 
         {/* Main Stats Row */}

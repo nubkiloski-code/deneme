@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
@@ -10,6 +11,7 @@ import Calculator from './components/Calculator';
 import { CryptoCurrency, Order, RateInfo, WalletConfig, OrderStatus, ChatMessage, EmailConfig, FirebaseConfig, UserAccount, TradeMode } from './types';
 import { sendMessageToGemini } from './services/geminiService';
 import { useWallet } from './hooks/useWallet';
+import { initFirebase, saveMessageToFirestore, subscribeToMessages } from './services/firebaseService';
 
 const INITIAL_RATES: RateInfo = {
   buyRate: 0.35,
@@ -102,9 +104,8 @@ function App() {
   const [orders, setOrders] = usePersistedState<Order[]>('nub_orders', []);
   const [users, setUsers] = usePersistedState<UserAccount[]>('nub_users', []);
   
-  const [messages, setMessages] = usePersistedState<ChatMessage[]>('nub_chat_history', [
-    { id: '1', role: 'model', text: 'Hi! I\'m LockBot. Ask me about rates, safety, or how to trade.', timestamp: Date.now(), userId: 'system', userName: 'LockBot' }
-  ]);
+  // Chat state is now driven by Firebase
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [isLiveSupport, setIsLiveSupport] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -123,15 +124,26 @@ function App() {
   const [showAdmin, setShowAdmin] = useState(false);
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
 
+  // Initialize Firebase once
+  useEffect(() => {
+    if (firebaseConfig.apiKey) {
+        initFirebase(firebaseConfig);
+        const unsubscribe = subscribeToMessages((fetchedMessages) => {
+            setMessages(fetchedMessages);
+        });
+        return () => unsubscribe();
+    }
+  }, [firebaseConfig]);
+
   // Determine current user context for the chat
   const chatUserId = currentUser ? currentUser.email : sessionId;
   const chatUserName = useMemo(() => {
       if (currentUser) return currentUser.username;
       
-      // Calculate guest number based on existing user IDs in history to keep it consistent
-      const uniqueGuests = Array.from(new Set(messages.filter(m => m.userId.startsWith('sess_')).map(m => m.userId)));
-      const index = uniqueGuests.indexOf(sessionId);
-      const guestNum = index === -1 ? uniqueGuests.length + 1 : index + 1;
+      // Calculate guest number based on existing unique sessions in message history
+      const uniqueGuestSessions = Array.from(new Set(messages.filter(m => m.userId.startsWith('sess_')).map(m => m.userId)));
+      const index = uniqueGuestSessions.indexOf(sessionId);
+      const guestNum = index === -1 ? uniqueGuestSessions.length + 1 : index + 1;
       return `User${guestNum}`;
   }, [currentUser, messages, sessionId]);
 
@@ -147,16 +159,14 @@ function App() {
     }
   }, []);
 
-  const handleAdminSendMessage = (text: string, targetUserId?: string) => {
-    const adminMsg: ChatMessage = { 
-      id: Date.now().toString(), 
+  const handleAdminSendMessage = async (text: string, targetUserId?: string) => {
+    await saveMessageToFirestore({ 
       role: 'admin', 
       text, 
       timestamp: Date.now(),
       userId: targetUserId || 'global',
       userName: 'Admin'
-    };
-    setMessages(prev => [...prev, adminMsg]);
+    });
   };
 
   const handleOrderSubmit = (orderData: Partial<Order>) => {
@@ -206,17 +216,16 @@ function App() {
 
     if (status === OrderStatus.COMPLETED) {
         const order = orders.find(o => o.id === orderId);
-        const targetUserId = order?.userEmail || sessionId; // Best guess if userEmail is null
-        const completionMsg: ChatMessage = {
-            id: `bot-notif-complete-${orderId}-${Date.now()}`,
+        const targetUserId = order?.userEmail || sessionId;
+        
+        saveMessageToFirestore({
             role: 'model',
             text: `✅ Order #${orderId} completed! Our team has finalized your trade. Thank you for choosing Nub.market. We hope to see you again soon!`,
             timestamp: Date.now(),
             userId: targetUserId,
             userName: 'LockBot'
-        };
-        setMessages(prev => [...prev, completionMsg]);
-        // Only open chat if the current active session matches the order's user
+        });
+        
         if (chatUserId === targetUserId) {
             setIsChatOpen(true);
         }
@@ -228,32 +237,28 @@ function App() {
   };
 
   const handleUserSendMessage = async (text: string) => {
-    const userMsg: ChatMessage = { 
-        id: Date.now().toString(), 
-        role: 'user', 
+    const userMsg = { 
+        role: 'user' as const, 
         text, 
         timestamp: Date.now(),
         userId: chatUserId,
         userName: chatUserName
     };
-    setMessages(prev => [...prev, userMsg]);
+    await saveMessageToFirestore(userMsg);
 
-    // If live support is active, admin handles responses, not the bot
     if (isLiveSupport) return;
 
     setIsChatLoading(true);
     const history = messages.filter(m => m.userId === chatUserId).slice(-5).map(m => `${m.role}: ${m.text}`);
     const responseText = await sendMessageToGemini(text, history, rates);
     
-    const botMsg: ChatMessage = { 
-        id: (Date.now() + 1).toString(), 
+    await saveMessageToFirestore({ 
         role: 'model', 
         text: responseText, 
         timestamp: Date.now(),
         userId: chatUserId,
         userName: 'LockBot'
-    };
-    setMessages(prev => [...prev, botMsg]);
+    });
     setIsChatLoading(false);
   };
 
@@ -262,7 +267,6 @@ function App() {
     return orders.filter(o => o.userEmail === currentUser.email);
   }, [orders, currentUser]);
 
-  // Current user's chat messages only
   const currentUserMessages = useMemo(() => {
       return messages.filter(m => m.userId === chatUserId || m.userId === 'system' || m.userId === 'global');
   }, [messages, chatUserId]);
@@ -360,3 +364,4 @@ function App() {
 }
 
 export default App;
+

@@ -160,16 +160,30 @@ function App() {
   };
 
   const handleUpdateOrderStatus = (orderId: string, status: OrderStatus) => {
-    setOrders(prev => prev.map(o => {
-      if (o.id === orderId) {
-        const updated = { ...o, status };
-        if (status === OrderStatus.COMPLETED) {
+    setOrders(prev => {
+      const next = prev.map(o => {
+        if (o.id === orderId) {
+          const updated = { ...o, status };
+          if (status === OrderStatus.COMPLETED) {
             updated.completedTimestamp = Date.now();
+          }
+          return updated;
         }
-        return updated;
-      }
-      return o;
-    }));
+        return o;
+      });
+      return next;
+    });
+
+    if (status === OrderStatus.COMPLETED) {
+      const completionMsg: ChatMessage = {
+        id: `bot-notif-complete-${orderId}-${Date.now()}`,
+        role: 'model',
+        text: `✅ Order #${orderId} completed! Our team has finalized your trade. Thank you for choosing Nub.market. We hope to see you again soon!`,
+        timestamp: Date.now()
+      };
+      setMessages(prev => [...prev, completionMsg]);
+      setIsChatOpen(true);
+    }
   };
 
   const handleRegisterUser = (newUser: UserAccount) => {

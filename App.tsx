@@ -102,16 +102,38 @@ function App() {
   const [orders, setOrders] = usePersistedState<Order[]>('nub_orders', []);
   const [users, setUsers] = usePersistedState<UserAccount[]>('nub_users', []);
   
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    { id: '1', role: 'model', text: 'Hi! I\'m LockBot. Ask me about rates, safety, or how to trade.', timestamp: Date.now() }
+  const [messages, setMessages] = usePersistedState<ChatMessage[]>('nub_chat_history', [
+    { id: '1', role: 'model', text: 'Hi! I\'m LockBot. Ask me about rates, safety, or how to trade.', timestamp: Date.now(), userId: 'system', userName: 'LockBot' }
   ]);
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [isLiveSupport, setIsLiveSupport] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
 
+  // Generate a stable Session ID for guest users
+  const sessionId = useMemo(() => {
+    let id = sessionStorage.getItem('nub_session_id');
+    if (!id) {
+        id = 'sess_' + Math.random().toString(36).substr(2, 9);
+        sessionStorage.setItem('nub_session_id', id);
+    }
+    return id;
+  }, []);
+
   const { userWalletAddress, connectWallet, disconnectWallet } = useWallet();
   const [showAdmin, setShowAdmin] = useState(false);
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
+
+  // Determine current user context for the chat
+  const chatUserId = currentUser ? currentUser.email : sessionId;
+  const chatUserName = useMemo(() => {
+      if (currentUser) return currentUser.username;
+      
+      // Calculate guest number based on existing user IDs in history to keep it consistent
+      const uniqueGuests = Array.from(new Set(messages.filter(m => m.userId.startsWith('sess_')).map(m => m.userId)));
+      const index = uniqueGuests.indexOf(sessionId);
+      const guestNum = index === -1 ? uniqueGuests.length + 1 : index + 1;
+      return `User${guestNum}`;
+  }, [currentUser, messages, sessionId]);
 
   useEffect(() => {
     if (!emailConfig.serviceId || !emailConfig.templateId || !emailConfig.publicKey) {
@@ -125,8 +147,15 @@ function App() {
     }
   }, []);
 
-  const handleAdminSendMessage = (text: string) => {
-    const adminMsg: ChatMessage = { id: Date.now().toString(), role: 'admin', text, timestamp: Date.now() };
+  const handleAdminSendMessage = (text: string, targetUserId?: string) => {
+    const adminMsg: ChatMessage = { 
+      id: Date.now().toString(), 
+      role: 'admin', 
+      text, 
+      timestamp: Date.now(),
+      userId: targetUserId || 'global',
+      userName: 'Admin'
+    };
     setMessages(prev => [...prev, adminMsg]);
   };
 
@@ -153,7 +182,7 @@ function App() {
     
     if (orderData.isGuest) {
       const alertText = `🚨 SYSTEM ALERT: New Guest Order #${newOrder.id} (${newOrder.amount} DLs - $${newOrder.totalUSD}). Check Orders tab.`;
-      handleAdminSendMessage(alertText);
+      handleAdminSendMessage(alertText, 'system');
     }
 
     setCurrentView('orders');
@@ -176,14 +205,21 @@ function App() {
     });
 
     if (status === OrderStatus.COMPLETED) {
-      const completionMsg: ChatMessage = {
-        id: `bot-notif-complete-${orderId}-${Date.now()}`,
-        role: 'model',
-        text: `✅ Order #${orderId} completed! Our team has finalized your trade. Thank you for choosing Nub.market. We hope to see you again soon!`,
-        timestamp: Date.now()
-      };
-      setMessages(prev => [...prev, completionMsg]);
-      setIsChatOpen(true);
+        const order = orders.find(o => o.id === orderId);
+        const targetUserId = order?.userEmail || sessionId; // Best guess if userEmail is null
+        const completionMsg: ChatMessage = {
+            id: `bot-notif-complete-${orderId}-${Date.now()}`,
+            role: 'model',
+            text: `✅ Order #${orderId} completed! Our team has finalized your trade. Thank you for choosing Nub.market. We hope to see you again soon!`,
+            timestamp: Date.now(),
+            userId: targetUserId,
+            userName: 'LockBot'
+        };
+        setMessages(prev => [...prev, completionMsg]);
+        // Only open chat if the current active session matches the order's user
+        if (chatUserId === targetUserId) {
+            setIsChatOpen(true);
+        }
     }
   };
 
@@ -192,18 +228,31 @@ function App() {
   };
 
   const handleUserSendMessage = async (text: string) => {
-    const userMsg: ChatMessage = { id: Date.now().toString(), role: 'user', text, timestamp: Date.now() };
+    const userMsg: ChatMessage = { 
+        id: Date.now().toString(), 
+        role: 'user', 
+        text, 
+        timestamp: Date.now(),
+        userId: chatUserId,
+        userName: chatUserName
+    };
     setMessages(prev => [...prev, userMsg]);
 
     // If live support is active, admin handles responses, not the bot
     if (isLiveSupport) return;
 
     setIsChatLoading(true);
-    // history is ignored by the new static bot service but kept for interface compatibility
-    const history = messages.slice(-5).map(m => `${m.role}: ${m.text}`);
+    const history = messages.filter(m => m.userId === chatUserId).slice(-5).map(m => `${m.role}: ${m.text}`);
     const responseText = await sendMessageToGemini(text, history, rates);
     
-    const botMsg: ChatMessage = { id: (Date.now() + 1).toString(), role: 'model', text: responseText, timestamp: Date.now() };
+    const botMsg: ChatMessage = { 
+        id: (Date.now() + 1).toString(), 
+        role: 'model', 
+        text: responseText, 
+        timestamp: Date.now(),
+        userId: chatUserId,
+        userName: 'LockBot'
+    };
     setMessages(prev => [...prev, botMsg]);
     setIsChatLoading(false);
   };
@@ -212,6 +261,11 @@ function App() {
     if (!currentUser) return [];
     return orders.filter(o => o.userEmail === currentUser.email);
   }, [orders, currentUser]);
+
+  // Current user's chat messages only
+  const currentUserMessages = useMemo(() => {
+      return messages.filter(m => m.userId === chatUserId || m.userId === 'system' || m.userId === 'global');
+  }, [messages, chatUserId]);
 
   return (
     <div className="min-h-screen flex flex-col relative">
@@ -261,7 +315,7 @@ function App() {
       </div>
       
       <SupportChat 
-        messages={messages} 
+        messages={currentUserMessages} 
         onSendMessage={handleUserSendMessage}
         isLoading={isChatLoading}
         externalOpen={isChatOpen}

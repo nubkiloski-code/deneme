@@ -1,10 +1,17 @@
+
 import { GoogleGenAI } from "@google/genai";
 import { RateInfo } from "../types";
 
-const API_KEY = process.env.API_KEY || '';
+// Safer access to process.env to prevent crashes in browser environments
+const getApiKey = () => {
+  try {
+    return process.env.API_KEY || '';
+  } catch {
+    return '';
+  }
+};
 
-// Initialize Gemini Client
-const ai = new GoogleGenAI({ apiKey: API_KEY });
+const API_KEY = getApiKey();
 
 export const sendMessageToGemini = async (
   message: string, 
@@ -16,8 +23,11 @@ export const sendMessageToGemini = async (
   }
 
   try {
-    const model = 'gemini-2.5-flash';
-    const systemInstruction = `You are "LockBot", the automated support assistant for GTLockMarket. 
+    // Initialize Gemini Client inside the call or ensure it's ready
+    const ai = new GoogleGenAI({ apiKey: API_KEY });
+    const model = 'gemini-3-flash-preview';
+    
+    const systemInstruction = `You are "LockBot", the automated support assistant for Nub.market. 
     This website allows users to Buy and Sell Growtopia Diamond Locks (DLs) using Cryptocurrency ONLY.
     
     Current Market Rates:

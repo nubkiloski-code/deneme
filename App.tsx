@@ -96,6 +96,7 @@ function App() {
 
   const [rates, setRates] = usePersistedState<RateInfo>('nub_rates', INITIAL_RATES);
   const [wallets, setWallets] = usePersistedState<WalletConfig>('nub_wallets', INITIAL_WALLETS);
+  const [dropWorldName, setDropWorldName] = usePersistedState<string>('nub_drop_world', 'MARKET123');
   const [emailConfig, setEmailConfig] = usePersistedState<EmailConfig>('nub_email_config', INITIAL_EMAIL_CONFIG);
   const [firebaseConfig, setFirebaseConfig] = usePersistedState<FirebaseConfig>('nub_firebase_config', INITIAL_FIREBASE_CONFIG);
   const [orders, setOrders] = usePersistedState<Order[]>('nub_orders', []);
@@ -240,6 +241,7 @@ function App() {
               <TradeSection 
                 rates={rates} 
                 wallets={wallets} 
+                dropWorldName={dropWorldName}
                 userWalletAddress={userWalletAddress}
                 onOrderSubmit={handleOrderSubmit} 
                 isLoggedIn={!!currentUser}
@@ -269,6 +271,8 @@ function App() {
           orders={orders}
           rates={rates}
           wallets={wallets}
+          dropWorldName={dropWorldName}
+          onUpdateDropWorldName={setDropWorldName}
           emailConfig={emailConfig}
           firebaseConfig={firebaseConfig}
           chatMessages={messages}

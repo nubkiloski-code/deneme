@@ -51,12 +51,14 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   onLoginSuccess,
   onLogout
 }) => {
-  const [userRole, setUserRole] = useState<UserRole>('guest');
+  const [userRole, setUserRole] = useState<UserRole>(currentUser ? 'user' : 'guest');
   const [authMode, setAuthMode] = useState<AuthMode>('login');
   
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [generatedCode, setGeneratedCode] = useState(''); 
   
   const [error, setError] = useState('');
   const [notification, setNotification] = useState<{title: string, message: string} | null>(null);
@@ -64,37 +66,29 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   const [activeTab, setActiveTab] = useState<'orders' | 'settings' | 'support'>('orders');
   const [localRates, setLocalRates] = useState(rates);
 
-  // Initialize role and data on mount or currentUser change
+  const userFilteredOrders = useMemo(() => {
+    if (userRole === 'admin') return orders;
+    if (!currentUser) return [];
+    return orders.filter(o => o.userEmail === currentUser.email);
+  }, [orders, currentUser, userRole]);
+
   useEffect(() => {
     if (currentUser) {
-      const isAdmin = currentUser.email.toLowerCase() === 'admin@nub.market' || 
-                      currentUser.email.toLowerCase() === 'nubkiloski@gmail.com';
-      setUserRole(isAdmin ? 'admin' : 'user');
-      setUsername(currentUser.username);
-      setEmail(currentUser.email);
-    } else {
-      setUserRole('guest');
+        setUserRole('user');
+        setUsername(currentUser.username);
+        setEmail(currentUser.email);
+    } else if (email !== 'admin@nub.market' || userRole !== 'admin') {
+        setUserRole('guest');
     }
   }, [currentUser]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    const lowEmail = email.toLowerCase();
-    const isAdmin = (lowEmail === 'admin@nub.market' && password === 'admin123') || 
-                    (lowEmail === 'nubkiloski@gmail.com' && password === 'BkBk20080602@@@@');
-
-    if (isAdmin) {
-      const adminUser: UserAccount = {
-        username: lowEmail === 'nubkiloski@gmail.com' ? 'Nubkiloski' : 'System Admin',
-        email: lowEmail,
-        password: password,
-        createdAt: Date.now()
-      };
+    if (email.toLowerCase() === 'admin@nub.market' && password === 'admin123') {
       setUserRole('admin');
       setError('');
-      onLoginSuccess(adminUser);
     } else {
-      const existingUser = users.find(u => u.email.toLowerCase() === lowEmail && u.password === password);
+      const existingUser = users.find(u => u.email === email && u.password === password);
       if (existingUser) {
         setUserRole('user');
         setUsername(existingUser.username);
@@ -118,12 +112,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   const handleSaveSettings = () => {
     onUpdateRates(localRates);
     setNotification({ title: 'Success', message: 'Settings saved.' });
-    setTimeout(() => setNotification(null), 3000);
   };
 
   if (userRole === 'guest') {
     return (
       <div className="fixed inset-0 z-[60] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+        {/* Back Button */}
         <button 
           onClick={onClose} 
           className="absolute top-8 left-8 p-3 rounded-full bg-slate-900/50 text-slate-400 hover:text-white border border-slate-800 transition-all"
@@ -132,6 +126,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
         </button>
 
         <div className="bg-[#1a2332] w-full max-w-[540px] rounded-[32px] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.7)] overflow-hidden border border-slate-800/40">
+          {/* Tabs */}
           <div className="flex bg-[#252f3f]/10 border-b border-slate-800/30">
             <button 
               onClick={() => setAuthMode('login')}
@@ -148,10 +143,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
 
           <div className="px-12 py-16 flex flex-col items-center">
+            {/* Center Lock Icon */}
             <div className="w-24 h-24 bg-[#1e2a3b]/80 rounded-full flex items-center justify-center mb-10 border border-slate-700/50 shadow-inner">
               <Lock className="w-10 h-10 text-gt-gold" strokeWidth={1.5} />
             </div>
 
+            {/* Header */}
             <h2 className="text-[36px] font-bold text-white mb-3 tracking-tight leading-none text-center">
               {authMode === 'login' ? 'Welcome Back' : 'Join Nub.market'}
             </h2>
@@ -160,12 +157,13 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
             </p>
 
             {error && (
-               <div className="w-full bg-red-500/10 border border-red-500/20 text-red-400 text-sm py-3 px-4 rounded-xl mb-8 text-center">
+               <div className="w-full bg-red-500/10 border border-red-500/20 text-red-400 text-sm py-3 px-4 rounded-xl mb-8 text-center animate-in fade-in zoom-in-95">
                  {error}
                </div>
             )}
 
             <form onSubmit={handleLogin} className="w-full space-y-9">
+              {/* Email Address */}
               <div className="space-y-3.5">
                 <label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.25em] ml-2">Email Address</label>
                 <div className="relative group">
@@ -178,11 +176,11 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="name@gmail.com"
                     className="w-full bg-[#202b3d]/80 border border-slate-700/50 py-5.5 pl-16 pr-8 rounded-2xl text-white outline-none focus:border-gt-gold focus:ring-4 focus:ring-gt-gold/5 transition-all placeholder-slate-600 font-medium text-[17px] z-10 relative"
-                    required
                   />
                 </div>
               </div>
 
+              {/* Password */}
               <div className="space-y-3.5">
                 <label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.25em] ml-2">Password</label>
                 <div className="relative group">
@@ -195,11 +193,11 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
                     className="w-full bg-[#202b3d]/80 border border-slate-700/50 py-5.5 pl-16 pr-8 rounded-2xl text-white outline-none focus:border-gt-gold focus:ring-4 focus:ring-gt-gold/5 transition-all placeholder-slate-600 font-mono text-[17px] z-10 relative"
-                    required
                   />
                 </div>
               </div>
 
+              {/* Sign In Button */}
               <div className="pt-4">
                 <button 
                   type="submit"
@@ -224,11 +222,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
 
   return (
     <div className="fixed inset-0 z-[60] bg-slate-950 flex flex-col text-white animate-in fade-in duration-300">
-      {notification && (
-        <div className="absolute top-24 left-1/2 -translate-x-1/2 z-[70] bg-green-500 text-white px-6 py-3 rounded-full shadow-2xl animate-bounce font-bold">
-          {notification.message}
-        </div>
-      )}
       <div className="bg-slate-900 border-b border-slate-800 p-5 flex justify-between items-center">
         <div className="flex items-center gap-4">
             <div className="bg-gt-gold/10 p-2 rounded-xl border border-gt-gold/20">
@@ -269,54 +262,51 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
             {activeTab === 'orders' && (
               <div className="grid gap-6">
                 <div className="flex justify-between items-end mb-4">
-                    <h2 className="text-3xl font-bold text-white">Manage Orders</h2>
-                    <span className="bg-slate-800 px-3 py-1 rounded-full text-xs font-bold text-slate-400">{orders.length} TOTAL</span>
+                    <h2 className="text-3xl font-bold text-white">{userRole === 'admin' ? 'Manage Orders' : 'My Orders'}</h2>
+                    <span className="bg-slate-800 px-3 py-1 rounded-full text-xs font-bold text-slate-400">{userFilteredOrders.length} TOTAL</span>
                 </div>
-                {orders.length === 0 ? (
-                  <div className="bg-slate-900/50 rounded-3xl p-12 text-center border border-dashed border-slate-700">
-                    <p className="text-slate-500 font-bold uppercase tracking-widest">No orders to display</p>
-                  </div>
-                ) : (
-                  orders.slice().reverse().map(order => (
-                    <div key={order.id} className="bg-slate-900 p-8 rounded-[24px] border border-slate-800 flex flex-col lg:flex-row gap-8 items-start group hover:border-slate-700 transition-all">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 text-[11px] font-black text-slate-500 uppercase tracking-[0.15em] mb-3">
-                          <span className="bg-slate-800 px-2 py-0.5 rounded">#{order.id}</span>
-                          <span>•</span>
-                          <span className="text-gt-gold">{order.userEmail || 'GUEST ORDER'}</span>
-                        </div>
-                        <h3 className="text-2xl font-bold mb-4">{order.amount} DLs <span className="text-slate-500 text-lg">via {order.currency}</span></h3>
-                        <div className="flex flex-wrap gap-4">
-                          <div className="bg-slate-800/50 px-4 py-2 rounded-xl text-xs font-bold text-slate-300 border border-slate-800">
-                              ID: <span className="text-white ml-1">{order.growId}</span>
-                          </div>
-                          <div className="bg-slate-800/50 px-4 py-2 rounded-xl text-xs font-bold text-slate-300 border border-slate-800">
-                              WORLD: <span className="text-white ml-1">{order.worldName}</span>
-                          </div>
-                        </div>
+                {userFilteredOrders.slice().reverse().map(order => (
+                  <div key={order.id} className="bg-slate-900 p-8 rounded-[24px] border border-slate-800 flex flex-col lg:flex-row gap-8 items-start group hover:border-slate-700 transition-all">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 text-[11px] font-black text-slate-500 uppercase tracking-[0.15em] mb-3">
+                        <span className="bg-slate-800 px-2 py-0.5 rounded">#{order.id}</span>
+                        <span>•</span>
+                        <span className="text-gt-gold">{order.userEmail || 'GUEST ORDER'}</span>
                       </div>
-                      <div className="flex flex-col gap-3 min-w-[220px]">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Current Status</span>
-                          <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase ${order.status === 'COMPLETED' ? 'bg-green-500/10 text-green-400' : 'bg-yellow-500/10 text-yellow-400'}`}>{order.status}</span>
+                      <h3 className="text-2xl font-bold mb-4">{order.amount} DLs <span className="text-slate-500 text-lg">via {order.currency}</span></h3>
+                      <div className="flex flex-wrap gap-4">
+                        <div className="bg-slate-800/50 px-4 py-2 rounded-xl text-xs font-bold text-slate-300 border border-slate-800">
+                            ID: <span className="text-white ml-1">{order.growId}</span>
                         </div>
-                        {order.status !== OrderStatus.COMPLETED && (
-                          <button 
-                            onClick={() => onUpdateOrderStatus(order.id, OrderStatus.COMPLETED)} 
-                            className="bg-green-600 hover:bg-green-500 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-green-900/10 flex items-center justify-center gap-2"
-                          >
-                            <Check className="w-5 h-5" /> Mark Completed
-                          </button>
-                        )}
-                        <button className="text-xs font-bold text-slate-500 hover:text-red-400 transition-colors py-2 uppercase tracking-widest">Cancel Order</button>
+                        <div className="bg-slate-800/50 px-4 py-2 rounded-xl text-xs font-bold text-slate-300 border border-slate-800">
+                            WORLD: <span className="text-white ml-1">{order.worldName}</span>
+                        </div>
                       </div>
                     </div>
-                  ))
-                )}
+                    <div className="flex flex-col gap-3 min-w-[220px]">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Current Status</span>
+                        <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase ${order.status === 'COMPLETED' ? 'bg-green-500/10 text-green-400' : 'bg-yellow-500/10 text-yellow-400'}`}>{order.status}</span>
+                      </div>
+                      {/* CRITICAL: ONLY ADMIN CAN MARK COMPLETED */}
+                      {userRole === 'admin' && order.status !== OrderStatus.COMPLETED && (
+                        <button 
+                          onClick={() => onUpdateOrderStatus(order.id, OrderStatus.COMPLETED)} 
+                          className="bg-green-600 hover:bg-green-500 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-green-900/10 flex items-center justify-center gap-2"
+                        >
+                          <Check className="w-5 h-5" /> Mark Completed
+                        </button>
+                      )}
+                      {userRole === 'admin' && (
+                        <button className="text-xs font-bold text-slate-500 hover:text-red-400 transition-colors py-2 uppercase tracking-widest">Cancel Order</button>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
             
-            {activeTab === 'settings' && (
+            {activeTab === 'settings' && userRole === 'admin' && (
                 <div className="max-w-2xl mx-auto space-y-12">
                    <h2 className="text-3xl font-bold text-white mb-8">Platform Settings</h2>
                    <div className="bg-slate-900 p-8 rounded-[32px] border border-slate-800 space-y-8">
@@ -336,35 +326,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                    </div>
                 </div>
             )}
-
-            {activeTab === 'support' && (
-              <div className="max-w-3xl mx-auto">
-                 <h2 className="text-3xl font-bold text-white mb-8">Support Dashboard</h2>
-                 <div className="bg-slate-900 rounded-[32px] border border-slate-800 overflow-hidden">
-                    <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-800/30">
-                       <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">Global Support Queue</span>
-                       <button 
-                         onClick={() => onToggleLiveSupport(!isLiveSupport)}
-                         className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-2 ${isLiveSupport ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}`}
-                       >
-                         {isLiveSupport ? <PowerOff className="w-4 h-4" /> : <Power className="w-4 h-4" />}
-                         {isLiveSupport ? 'DISABLE LIVE BOT' : 'ENABLE LIVE BOT'}
-                       </button>
-                    </div>
-                    <div className="h-[500px] overflow-y-auto p-8 space-y-6">
-                      {chatMessages.map(msg => (
-                        <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-start' : 'justify-end'}`}>
-                          <div className={`max-w-[70%] p-4 rounded-2xl ${msg.role === 'user' ? 'bg-slate-800 border border-slate-700' : msg.role === 'admin' ? 'bg-gt-gold text-black' : 'bg-blue-600'}`}>
-                             <div className="text-[10px] font-black uppercase tracking-widest mb-1 opacity-60">{msg.role}</div>
-                             <div className="text-sm font-medium">{msg.text}</div>
-                             <div className="text-[9px] mt-2 text-right opacity-50">{new Date(msg.timestamp).toLocaleTimeString()}</div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                 </div>
-              </div>
-            )}
           </div>
         </main>
       </div>
@@ -373,3 +334,4 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
 };
 
 export default AdminPanel;
+

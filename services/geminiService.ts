@@ -1,3 +1,4 @@
+
 import { GoogleGenAI } from "@google/genai";
 import { RateInfo } from "../types";
 
@@ -7,11 +8,19 @@ export const sendMessageToGemini = async (
   rates: RateInfo
 ): Promise<string> => {
   try {
-    // Initialize the client with the required named parameter.
-    // We assume process.env.API_KEY is correctly injected by the hosting environment.
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    // Safety check: Access process.env carefully to prevent ReferenceErrors 
+    // in browser contexts where 'process' is not globally defined.
+    const apiKey = (typeof process !== 'undefined' && process.env) ? process.env.API_KEY : '';
     
-    // Using the recommended model for basic text/Q&A tasks as per guidelines.
+    if (!apiKey) {
+      console.error("Gemini API Key is not configured in the environment variables.");
+      return "I'm currently unable to chat because my connection isn't set up. Please contact the site administrator.";
+    }
+
+    // Initialize the AI client using the named parameter.
+    const ai = new GoogleGenAI({ apiKey });
+    
+    // 'gemini-3-flash-preview' is the recommended model for basic text and Q&A.
     const modelName = 'gemini-3-flash-preview';
     
     const systemInstruction = `You are "LockBot", the support assistant for Nub.market.
@@ -31,34 +40,34 @@ export const sendMessageToGemini = async (
     - If a user needs human help, mention that an admin monitors this chat.
     `;
 
-    // Constructing the message with context
-    const fullPrompt = `Conversation History Context:\n${history.join('\n')}\n\nNew Message from User: ${message}`;
+    // Constructing a robust prompt that includes history and instructions.
+    const promptText = `System: ${systemInstruction}\n\nChat Context:\n${history.join('\n')}\n\nUser Question: ${message}`;
 
     const response = await ai.models.generateContent({
       model: modelName,
-      contents: { parts: [{ text: fullPrompt }] },
+      contents: promptText,
       config: {
-        systemInstruction: systemInstruction,
         temperature: 0.7,
-        // Disable thinking to prioritize low latency for a chat interface 
-        // and ensure the response doesn't run out of tokens.
+        maxOutputTokens: 1000,
+        // Disabling the thinking budget minimizes latency and prevents errors 
+        // related to thinking token limits during simple conversations.
         thinkingConfig: { thinkingBudget: 0 },
       }
     });
 
-    // Access .text property directly (getter) as per SDK rules.
+    // Use the .text property getter to extract the output string.
     const text = response.text;
     
     if (text && text.trim().length > 0) {
       return text.trim();
     }
     
-    return "I'm processing your request, but I couldn't generate a clear answer. Could you please rephrase your question?";
+    return "I'm listening, but I couldn't generate a clear response. Could you rephrase your question?";
   } catch (error) {
-    console.error("Gemini API Connectivity Error:", error);
-    // This fallback is triggered if the API call fails, often due to network issues or 
-    // environment variable configuration on the production domain.
+    console.error("Gemini API Error Detail:", error);
+    // This fallback message matches the one in the user's reported error.
     return "I'm having trouble connecting to my brain right now. Please try again in a few seconds!";
   }
 };
+
 

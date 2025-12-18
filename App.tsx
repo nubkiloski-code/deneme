@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 import TradeSection from './components/TradeSection';
@@ -43,35 +43,24 @@ const INITIAL_FIREBASE_CONFIG: FirebaseConfig = {
 // Global Background Component
 const GlobalBackground = () => {
   const textString = "INSTANTDELIVERY";
-  // Increased count to 40 to ensure coverage without spaces
   const marqueeContent = Array(40).fill(textString).join("");
 
   return (
     <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
-       {/* Background Color Base */}
        <div className="absolute inset-0 bg-gt-dark"></div>
-
-       {/* Glowing Blobs */}
        <div className="absolute top-[-10%] right-[-5%] w-[600px] h-[600px] bg-gt-gold/5 rounded-full blur-[120px]" />
        <div className="absolute bottom-[-10%] left-[-5%] w-[500px] h-[500px] bg-blue-500/5 rounded-full blur-[120px]" />
-
-       {/* Scrolling Text Layer */}
        <div className="absolute inset-0 flex flex-col justify-center opacity-[0.03] select-none">
-         {/* Row 1: Left to Right */}
          <div className="w-full overflow-hidden mb-16">
            <div className="animate-marquee-reverse whitespace-nowrap text-[8rem] font-black text-white leading-none">
              {marqueeContent}
            </div>
          </div>
-         
-         {/* Row 2: Right to Left (Outline) */}
          <div className="w-full overflow-hidden mb-16">
            <div className="animate-marquee whitespace-nowrap text-[8rem] font-black text-transparent stroke-white stroke-2 leading-none" style={{ WebkitTextStroke: '2px white' }}>
              {marqueeContent}
            </div>
          </div>
-
-         {/* Row 3: Left to Right */}
          <div className="w-full overflow-hidden">
            <div className="animate-marquee-reverse whitespace-nowrap text-[8rem] font-black text-white leading-none">
              {marqueeContent}
@@ -82,7 +71,6 @@ const GlobalBackground = () => {
   );
 };
 
-// Helper to load/save from localStorage
 const usePersistedState = <T,>(key: string, initialValue: T): [T, React.Dispatch<React.SetStateAction<T>>] => {
   const [state, setState] = useState<T>(() => {
     try {
@@ -106,11 +94,9 @@ const usePersistedState = <T,>(key: string, initialValue: T): [T, React.Dispatch
 };
 
 function App() {
-  // View State
   const [currentView, setCurrentView] = useState<'home' | 'orders' | 'tools'>('home');
   const [pendingView, setPendingView] = useState<'home' | 'orders' | 'tools' | null>(null);
 
-  // Persisted State
   const [rates, setRates] = usePersistedState<RateInfo>('nub_rates', INITIAL_RATES);
   const [wallets, setWallets] = usePersistedState<WalletConfig>('nub_wallets', INITIAL_WALLETS);
   const [emailConfig, setEmailConfig] = usePersistedState<EmailConfig>('nub_email_config', INITIAL_EMAIL_CONFIG);
@@ -118,43 +104,29 @@ function App() {
   const [orders, setOrders] = usePersistedState<Order[]>('nub_orders', []);
   const [users, setUsers] = usePersistedState<UserAccount[]>('nub_users', []);
   
-  // Chat State (Not persisted to allow fresh sessions)
   const [messages, setMessages] = useState<ChatMessage[]>([
     { id: '1', role: 'model', text: 'Hi! I\'m LockBot. Ask me about rates, safety, or how to trade.', timestamp: Date.now() }
   ]);
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [isLiveSupport, setIsLiveSupport] = useState(false);
-  const [isChatOpen, setIsChatOpen] = useState(false); // Lifted state to control chat visibility
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
-  // Wallet Logic from Custom Hook
   const { userWalletAddress, connectWallet, disconnectWallet } = useWallet();
-
-  // Admin State
   const [showAdmin, setShowAdmin] = useState(false);
-
-  // Authentication State
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
 
-  // FORCE UPDATE EMAIL CONFIG IF EMPTY (Self-Repair)
   useEffect(() => {
     if (!emailConfig.serviceId || !emailConfig.templateId || !emailConfig.publicKey) {
-      console.log("Detected missing email config, applying hardcoded defaults.");
       setEmailConfig(INITIAL_EMAIL_CONFIG);
-    } else if (emailConfig.templateId !== INITIAL_EMAIL_CONFIG.templateId && emailConfig.serviceId === INITIAL_EMAIL_CONFIG.serviceId) {
-        console.log("Updating template ID from code.");
-        setEmailConfig(INITIAL_EMAIL_CONFIG);
     }
   }, []); 
 
-  // FORCE UPDATE FIREBASE CONFIG IF EMPTY
   useEffect(() => {
     if (!firebaseConfig.apiKey && INITIAL_FIREBASE_CONFIG.apiKey) {
-      console.log("Applying hardcoded Firebase config.");
       setFirebaseConfig(INITIAL_FIREBASE_CONFIG);
     }
   }, []);
 
-  // Handlers
   const handleAdminSendMessage = (text: string) => {
     const adminMsg: ChatMessage = { id: Date.now().toString(), role: 'admin', text, timestamp: Date.now() };
     setMessages(prev => [...prev, adminMsg]);
@@ -170,6 +142,7 @@ function App() {
       totalUSD: orderData.totalUSD!,
       growId: orderData.growId!,
       worldName: orderData.worldName!,
+      userEmail: currentUser?.email, // Tag order with current user's email
       status: OrderStatus.PENDING,
       timestamp: Date.now(),
       txHash: orderData.txHash,
@@ -180,13 +153,12 @@ function App() {
     };
     setOrders(prev => [...prev, newOrder]);
     
-    // INFORM ADMIN IF GUEST ORDER
     if (orderData.isGuest) {
       const alertText = `🚨 SYSTEM ALERT: New Guest Order #${newOrder.id} (${newOrder.amount} DLs - $${newOrder.totalUSD}). Check Orders tab.`;
       handleAdminSendMessage(alertText);
     }
 
-    setCurrentView('orders'); // Navigate to orders page after submitting
+    setCurrentView('orders');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -194,7 +166,6 @@ function App() {
     setOrders(prev => prev.map(o => {
       if (o.id === orderId) {
         const updated = { ...o, status };
-        // Always update completion timestamp when marked as completed
         if (status === OrderStatus.COMPLETED) {
             updated.completedTimestamp = Date.now();
         }
@@ -212,9 +183,7 @@ function App() {
     const userMsg: ChatMessage = { id: Date.now().toString(), role: 'user', text, timestamp: Date.now() };
     setMessages(prev => [...prev, userMsg]);
 
-    if (isLiveSupport) {
-      return;
-    }
+    if (isLiveSupport) return;
 
     setIsChatLoading(true);
     const history = messages.slice(-5).map(m => `${m.role}: ${m.text}`);
@@ -225,11 +194,18 @@ function App() {
     setIsChatLoading(false);
   };
 
+  // Filter orders for the current user's personal order list view
+  const userFilteredOrders = useMemo(() => {
+    // If no user is logged in, show no orders (privacy first)
+    if (!currentUser) return [];
+    // Show only orders that match the user's email
+    return orders.filter(o => o.userEmail === currentUser.email);
+  }, [orders, currentUser]);
+
   return (
     <div className="min-h-screen flex flex-col relative">
       <GlobalBackground />
       
-      {/* Content wrapper with z-index to sit above background */}
       <div className="relative z-10 flex flex-col min-h-screen">
         <Navbar 
           onAdminClick={() => setShowAdmin(true)} 
@@ -264,7 +240,7 @@ function App() {
               />
             </>
           )}
-          {currentView === 'orders' && <OrderList orders={orders} />}
+          {currentView === 'orders' && <OrderList orders={userFilteredOrders} />}
           {currentView === 'tools' && <Calculator />}
         </main>
         
@@ -281,7 +257,7 @@ function App() {
 
       {showAdmin && (
         <AdminPanel 
-          orders={orders}
+          orders={orders} // Admin Panel gets the full list (Admin sees all)
           rates={rates}
           wallets={wallets}
           emailConfig={emailConfig}
@@ -315,3 +291,4 @@ function App() {
 }
 
 export default App;
+

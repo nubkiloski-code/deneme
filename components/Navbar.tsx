@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Menu, UserCircle, Wallet, LogOut, X, Lock, Copy, Check, ExternalLink, ChevronDown, Calculator } from 'lucide-react';
+import { Menu, UserCircle, Wallet, LogOut, X, Lock, Copy, Check, ExternalLink, ChevronDown, Calculator, Tag } from 'lucide-react';
 import { UserAccount } from '../types';
 
 interface NavbarProps {
@@ -10,8 +10,8 @@ interface NavbarProps {
   onDisconnect: () => void;
   currentUser: UserAccount | null;
   onLogout: () => void;
-  onNavigate: (view: 'home' | 'orders' | 'tools') => void;
-  currentView: 'home' | 'orders' | 'tools';
+  onNavigate: (view: 'home' | 'sell' | 'orders' | 'tools') => void;
+  currentView: 'home' | 'sell' | 'orders' | 'tools';
 }
 
 const Navbar: React.FC<NavbarProps> = ({ 
@@ -41,7 +41,7 @@ const Navbar: React.FC<NavbarProps> = ({
   }, []);
 
   const handleLogoClick = () => {
-    window.location.href = "/";
+    onNavigate('home');
   };
 
   const handleConnect = () => {
@@ -84,6 +84,20 @@ const Navbar: React.FC<NavbarProps> = ({
         {/* Desktop Menu */}
         <div className="hidden md:flex items-center gap-6 text-slate-300 font-medium text-sm">
           
+          <button 
+            onClick={() => onNavigate('home')} 
+            className={`hover:text-gt-gold transition-colors ${currentView === 'home' ? 'text-gt-gold font-bold' : ''}`}
+          >
+            Buy
+          </button>
+
+          <button 
+            onClick={() => onNavigate('sell')} 
+            className={`hover:text-gt-gold transition-colors flex items-center gap-1 ${currentView === 'sell' ? 'text-gt-gold font-bold' : ''}`}
+          >
+            <Tag className="w-4 h-4" /> Sell to Us
+          </button>
+
           <button 
             onClick={() => onNavigate('tools')} 
             className={`hover:text-gt-gold transition-colors flex items-center gap-1 ${currentView === 'tools' ? 'text-gt-gold font-bold' : ''}`}
@@ -135,14 +149,6 @@ const Navbar: React.FC<NavbarProps> = ({
                             {userWalletAddress.slice(0, 6)}...{userWalletAddress.slice(-4)}
                         </span>
                         <ChevronDown className={`w-3 h-3 transition-transform ${isWalletDropdownOpen ? 'rotate-180' : ''}`} />
-                        
-                        {/* Hover Tooltip for Full Address */}
-                        {!isWalletDropdownOpen && (
-                          <div className="absolute top-full mt-3 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-black/90 text-white text-[10px] rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 border border-slate-700 shadow-xl font-mono">
-                            {userWalletAddress}
-                            <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-black/90 rotate-45 border-t border-l border-slate-700"></div>
-                          </div>
-                        )}
                     </>
                 ) : (
                     'Connect Wallet'
@@ -206,7 +212,13 @@ const Navbar: React.FC<NavbarProps> = ({
               onClick={() => { onNavigate('home'); setIsMobileMenuOpen(false); }}
               className={`text-lg font-medium text-left transition-colors border-b border-slate-800 pb-3 ${currentView === 'home' ? 'text-gt-gold' : 'text-slate-300'}`}
             >
-              Trade
+              Buy
+            </button>
+            <button 
+              onClick={() => { onNavigate('sell'); setIsMobileMenuOpen(false); }}
+              className={`text-lg font-medium text-left transition-colors border-b border-slate-800 pb-3 flex items-center gap-2 ${currentView === 'sell' ? 'text-gt-gold' : 'text-slate-300'}`}
+            >
+              <Tag className="w-5 h-5" /> Sell to Us
             </button>
             <button 
               onClick={() => { onNavigate('tools'); setIsMobileMenuOpen(false); }}
@@ -268,3 +280,4 @@ const Navbar: React.FC<NavbarProps> = ({
 };
 
 export default Navbar;
+

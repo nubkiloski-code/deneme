@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { TradeMode, CryptoCurrency, RateInfo, WalletConfig, Order, OrderDestination } from '../types';
 import CryptoSelector from './CryptoSelector';
-import { ArrowRight, Wallet, Lock, Copy, Check, ShieldCheck, Plus, Minus, Info, Activity, Globe, MessageCircleQuestion, Zap, ExternalLink, Loader2, XCircle, CheckCircle } from 'lucide-react';
+import { ArrowRight, Wallet, Lock, Copy, Check, ShieldCheck, Plus, Minus, Info, Activity, Globe, ExternalLink, Loader2, XCircle, CheckCircle } from 'lucide-react';
 import { useWallet } from '../hooks/useWallet';
 
 interface TradeSectionProps {
@@ -13,10 +12,11 @@ interface TradeSectionProps {
   isLoggedIn: boolean;
   onRequestLogin: () => void;
   onOpenSupport: () => void;
+  initialMode?: TradeMode;
 }
 
-const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletAddress, onOrderSubmit, isLoggedIn, onRequestLogin, onOpenSupport }) => {
-  const [mode, setMode] = useState<TradeMode>(TradeMode.BUY);
+const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletAddress, onOrderSubmit, isLoggedIn, onRequestLogin, onOpenSupport, initialMode = TradeMode.BUY }) => {
+  const [mode, setMode] = useState<TradeMode>(initialMode);
   const [amount, setAmount] = useState<number>(10); 
   const [selectedCrypto, setSelectedCrypto] = useState<CryptoCurrency | null>(null);
   const [cryptoPrices, setCryptoPrices] = useState<Record<CryptoCurrency, number>>({
@@ -62,6 +62,17 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
     : !selectedCrypto 
       ? '0' 
       : derivedCryptoValue.toFixed(selectedCrypto === CryptoCurrency.USDT ? 2 : 6);
+
+  // Sync mode with prop changes (e.g. navigation from Navbar)
+  useEffect(() => {
+    setMode(initialMode);
+    setStep(1); // Reset step when navigation occurs
+    if (initialMode === TradeMode.SELL) {
+        setFormRevealed(true);
+    } else {
+        setFormRevealed(selectedCrypto !== null);
+    }
+  }, [initialMode]);
 
   const getCryptoShortName = (c: CryptoCurrency | null) => {
     if (!c) return '';
@@ -184,8 +195,9 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
   const validateForm = () => {
     if (amount <= 0 || !selectedCrypto) return false;
     if (!isBuy && !payoutAddress) return false;
-    if (isSafeMode) return destinations.every(d => d.growId.trim() !== '' && d.worldName.trim() !== '');
-    return growId.trim() !== '' && worldName.trim() !== '';
+    if (isBuy && isSafeMode) return destinations.every(d => d.growId.trim() !== '' && d.worldName.trim() !== '');
+    if (isBuy) return growId.trim() !== '' && worldName.trim() !== '';
+    return true; 
   };
 
   const handleDestinationChange = (index: number, field: keyof OrderDestination, value: string) => {
@@ -215,8 +227,8 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
         isSafeMode, isGuest,
         txHash: isBuy ? txHash : undefined,
         payoutAddress: !isBuy ? payoutAddress : undefined,
-        growId: isSafeMode ? "Multiple (Safe Mode)" : growId,
-        worldName: isSafeMode ? "See Destinations" : worldName,
+        growId: isBuy ? (isSafeMode ? "Multiple (Safe Mode)" : growId) : "Market Deposit",
+        worldName: isBuy ? (isSafeMode ? "See Destinations" : worldName) : "MARKET123",
         destinations: isSafeMode ? destinations : undefined
       });
       setStep(1); setTxHash(''); setPayoutAddress(''); setAmount(10); setGrowId(''); setWorldName(''); setWorldCount(5); setFormRevealed(false); setSelectedCrypto(null); 
@@ -243,6 +255,24 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
     <div id="trade" className="pt-2 px-4 pb-20">
       <div className="max-w-4xl mx-auto">
         <div className="bg-gt-card/90 backdrop-blur-xl rounded-[32px] border border-slate-700/50 shadow-2xl overflow-hidden pt-4">
+          
+          <div className="flex justify-center mb-6">
+            <div className="bg-slate-900/50 p-1 rounded-2xl border border-slate-800 flex gap-1">
+                <button 
+                    onClick={() => setMode(TradeMode.BUY)}
+                    className={`px-8 py-3 rounded-xl font-bold text-sm transition-all flex items-center gap-2 ${isBuy ? 'bg-gt-gold text-slate-950 shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                >
+                    Buy DLs
+                </button>
+                <button 
+                    onClick={() => setMode(TradeMode.SELL)}
+                    className={`px-8 py-3 rounded-xl font-bold text-sm transition-all flex items-center gap-2 ${!isBuy ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                >
+                    Sell to Us
+                </button>
+            </div>
+          </div>
+
           <div className="flex justify-center items-center gap-2 mb-4">
             <div className={`px-2 py-0.5 rounded-full text-[10px] font-bold tracking-widest uppercase flex items-center gap-1.5 ${isBuy ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'}`}>
               <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${isBuy ? 'bg-green-400' : 'bg-blue-400'}`}></span>
@@ -262,7 +292,7 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
                         </div>
                       </div>
                       <div className="space-y-1">
-                        <label className="text-xs font-bold text-slate-400 uppercase ml-1">You Pay ({shortName || '---'})</label>
+                        <label className="text-xs font-bold text-slate-400 uppercase ml-1">{isBuy ? 'You Pay' : 'You Receive'} ({shortName || '---'})</label>
                          <div className="relative group">
                            <input type="number" value={displayCrypto} onChange={handleCryptoInputChange} onFocus={() => { if (selectedCrypto) { setActiveInput('crypto'); setCryptoInputValue(displayCrypto); } }} onBlur={() => setActiveInput(null)} disabled={!selectedCrypto} className="w-full bg-slate-800 border border-slate-600 rounded-2xl px-4 py-2.5 text-xl md:text-2xl font-bold text-white focus:border-gt-gold outline-none transition-all shadow-inner disabled:opacity-50 [appearance:textfield]" />
                            {selectedCrypto && (
@@ -287,16 +317,16 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
                             </div>
                         </div>
                       )}
-                      <label className="text-xs font-bold text-slate-500 uppercase ml-1 mb-1 block">Select Payment Method</label>
+                      <label className="text-xs font-bold text-slate-500 uppercase ml-1 mb-1 block">Select {isBuy ? 'Payment' : 'Payout'} Method</label>
                       <CryptoSelector selected={selectedCrypto} onSelect={handleCryptoSelection} />
                     </div>
                     <div ref={formEndRef} className={`transition-all duration-700 ease-in-out overflow-hidden ${formRevealed ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
                       <div className="pt-6">
                         <div className="bg-slate-900/80 rounded-3xl p-4 md:p-6 border border-slate-700/80 shadow-2xl relative overflow-hidden">
-                          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-gt-gold to-transparent opacity-50"></div>
+                          <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-${isBuy ? 'gt-gold' : 'blue-500'} to-transparent opacity-50`}></div>
                           <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-700/50">
-                             <div className="bg-slate-800 p-2 rounded-lg"><Globe className="w-5 h-5 text-gt-gold" /></div>
-                             <div><h4 className="text-sm font-bold text-white uppercase tracking-wider">Delivery Details</h4><p className="text-[10px] text-slate-500">Where should we deliver your DLs?</p></div>
+                             <div className="bg-slate-800 p-2 rounded-lg"><Globe className={`w-5 h-5 ${isBuy ? 'text-gt-gold' : 'text-blue-400'}`} /></div>
+                             <div><h4 className="text-sm font-bold text-white uppercase tracking-wider">{isBuy ? 'Delivery Details' : 'Payout Details'}</h4><p className="text-[10px] text-slate-500">{isBuy ? 'Where should we deliver your DLs?' : 'Where should we send your crypto?'}</p></div>
                           </div>
                           {isBuy ? (
                               <div className="space-y-6">
@@ -348,7 +378,7 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
                      {isBuy && (
                         <div className="bg-slate-800/50 rounded-2xl p-4 border border-slate-700">
                            <label className="text-xs font-bold text-slate-500 uppercase ml-1 mb-2 block">Transaction Hash (TXID)</label>
-                           <div className="relative"><input type="text" value={txHash} onChange={(e) => setTxHash(e.target.value)} placeholder="Paste TXID here..." className={`w-full bg-slate-900 border rounded-xl px-4 py-3 text-sm text-white outline-none font-mono transition-all pr-10 ${txStatus === 'valid' ? 'border-green-500/50' : txStatus === 'invalid' ? 'border-red-500/50' : 'border-slate-600'}`} /><div className="absolute right-3 top-1/2 -translate-y-1/2">{txStatus === 'validating' && <Loader2 className="w-4 h-4 text-slate-400 animate-spin" />}{txStatus === 'valid' && <CheckCircle className="w-4 h-4 text-green-500" />}{txStatus === 'invalid' && <XCircle className="w-4 h-4 text-red-500" />}</div></div>
+                           <div className="relative"><input type="text" value={txHash} onChange={(e) => setTxHash(e.target.value)} placeholder="Paste TXID here..." className={`w-full bg-slate-900 border rounded-xl px-4 py-3 text-sm text-white outline-none font-mono transition-all pr-10 ${txStatus === 'valid' ? 'border-green-500/50' : txStatus === 'invalid' ? 'border-red-500/50' : 'border-slate-600'}`} /><div className="absolute right-3 top-1/2 -translate-y-1/2">{txStatus === 'validating' && <Loader2 className="w-4 h-4 text-slate-400 animate-spin" />}{txStatus === 'valid' && <CheckCircle className="w-4 h-4 text-green-400" />}{txStatus === 'invalid' && <XCircle className="w-4 h-4 text-red-500" />}</div></div>
                            <div className="mt-2 flex justify-between items-center min-h-[20px]">{txStatus === 'valid' && <span className="text-[10px] text-green-400 font-bold">Format Valid</span>}{txStatus === 'invalid' && <span className="text-[10px] text-red-400 font-bold">Invalid Hash Format</span>}{txHash && txStatus !== 'invalid' && <a href={getExplorerLink(txHash)} target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-400 hover:underline flex items-center gap-1">Check on Explorer <ExternalLink className="w-3 h-3" /></a>}</div>
                         </div>
                      )}

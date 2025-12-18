@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Menu, UserCircle, Wallet, LogOut, X, Lock, Copy, Check, ExternalLink, ChevronDown, Calculator } from 'lucide-react';
 import { UserAccount } from '../types';
@@ -44,7 +45,6 @@ const Navbar: React.FC<NavbarProps> = ({
   };
 
   const handleConnect = () => {
-    // If already connected, toggle dropdown
     if (userWalletAddress) {
         setIsWalletDropdownOpen(!isWalletDropdownOpen);
     } else {
@@ -160,16 +160,17 @@ const Navbar: React.FC<NavbarProps> = ({
                         </span>
                     </div>
                     
-                    <div className="bg-slate-900/50 rounded-xl p-3 border border-slate-800 mb-4 group">
+                    <div className="bg-slate-900/50 rounded-xl p-3 border border-slate-800 mb-4 group cursor-pointer" onClick={copyAddress}>
                         <div className="flex justify-between items-start mb-1">
-                            <span className="text-[10px] text-slate-500 font-bold">ADDRESS</span>
-                            <button onClick={copyAddress} className="text-slate-400 hover:text-white transition-colors">
+                            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Address</span>
+                            <div className="text-slate-400 group-hover:text-white transition-colors">
                                 {copied ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
-                            </button>
+                            </div>
                         </div>
-                        <div className="font-mono text-xs text-slate-300 break-all leading-relaxed select-all">
-                            {userWalletAddress}
+                        <div className="font-mono text-sm text-slate-300 leading-relaxed font-bold">
+                            {userWalletAddress.slice(0, 5)}...
                         </div>
+                        <div className="text-[9px] text-slate-600 mt-1 group-hover:text-gt-gold transition-colors font-bold uppercase tracking-tighter">Click to copy full address</div>
                     </div>
 
                     <div className="space-y-2">

@@ -66,7 +66,7 @@ const TradeSection: React.FC<TradeSectionProps> = ({ rates, wallets, userWalletA
   // Sync mode with prop changes (e.g. navigation from Navbar)
   useEffect(() => {
     setMode(initialMode);
-    setStep(1); // Reset step when navigation occurs
+    setStep(1); 
     if (initialMode === TradeMode.SELL) {
         setFormRevealed(true);
     } else {

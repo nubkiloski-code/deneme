@@ -67,6 +67,7 @@ export interface Order {
   totalUSD: number;
   growId: string; // Primary ID or "Multiple"
   worldName: string; // Primary World or "Safe Mode"
+  userEmail?: string; // Owner of the order
   isSafeMode?: boolean;
   isGuest?: boolean;
   destinations?: OrderDestination[];
@@ -83,3 +84,4 @@ export interface UserAccount {
   password: string;
   createdAt: number;
 }
+

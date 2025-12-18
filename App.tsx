@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
@@ -8,7 +7,7 @@ import SupportChat from './components/SupportChat';
 import OrderList from './components/OrderList';
 import AdminPanel from './components/AdminPanel';
 import Calculator from './components/Calculator';
-import { CryptoCurrency, Order, RateInfo, WalletConfig, OrderStatus, ChatMessage, EmailConfig, FirebaseConfig, UserAccount } from './types';
+import { CryptoCurrency, Order, RateInfo, WalletConfig, OrderStatus, ChatMessage, EmailConfig, FirebaseConfig, UserAccount, TradeMode } from './types';
 import { sendMessageToGemini } from './services/geminiService';
 import { useWallet } from './hooks/useWallet';
 
@@ -24,7 +23,6 @@ const INITIAL_WALLETS: WalletConfig = {
   [CryptoCurrency.USDT]: 'TVj7xAB4...xk9'
 };
 
-// HARDCODED CREDENTIALS - DO NOT DELETE
 const INITIAL_EMAIL_CONFIG: EmailConfig = {
   serviceId: 'service_g3bcm7z',
   templateId: 'template_76o6k2v',
@@ -40,7 +38,6 @@ const INITIAL_FIREBASE_CONFIG: FirebaseConfig = {
   appId: "1:243668980624:web:72669d1644dc4155d4d915"
 };
 
-// Global Background Component
 const GlobalBackground = () => {
   const textString = "INSTANTDELIVERY";
   const marqueeContent = Array(40).fill(textString).join("");
@@ -94,8 +91,8 @@ const usePersistedState = <T,>(key: string, initialValue: T): [T, React.Dispatch
 };
 
 function App() {
-  const [currentView, setCurrentView] = useState<'home' | 'orders' | 'tools'>('home');
-  const [pendingView, setPendingView] = useState<'home' | 'orders' | 'tools' | null>(null);
+  const [currentView, setCurrentView] = useState<'home' | 'sell' | 'orders' | 'tools'>('home');
+  const [pendingView, setPendingView] = useState<'home' | 'sell' | 'orders' | 'tools' | null>(null);
 
   const [rates, setRates] = usePersistedState<RateInfo>('nub_rates', INITIAL_RATES);
   const [wallets, setWallets] = usePersistedState<WalletConfig>('nub_wallets', INITIAL_WALLETS);
@@ -142,7 +139,7 @@ function App() {
       totalUSD: orderData.totalUSD!,
       growId: orderData.growId!,
       worldName: orderData.worldName!,
-      userEmail: currentUser?.email, // Tag order with current user's email
+      userEmail: currentUser?.email,
       status: OrderStatus.PENDING,
       timestamp: Date.now(),
       txHash: orderData.txHash,
@@ -194,11 +191,8 @@ function App() {
     setIsChatLoading(false);
   };
 
-  // Filter orders for the current user's personal order list view
   const userFilteredOrders = useMemo(() => {
-    // If no user is logged in, show no orders (privacy first)
     if (!currentUser) return [];
-    // Show only orders that match the user's email
     return orders.filter(o => o.userEmail === currentUser.email);
   }, [orders, currentUser]);
 
@@ -226,7 +220,7 @@ function App() {
         />
         
         <main className="flex-grow">
-          {currentView === 'home' && (
+          {(currentView === 'home' || currentView === 'sell') && (
             <>
               <Hero />
               <TradeSection 
@@ -237,6 +231,7 @@ function App() {
                 isLoggedIn={!!currentUser}
                 onRequestLogin={() => setShowAdmin(true)}
                 onOpenSupport={() => setIsChatOpen(true)}
+                initialMode={currentView === 'sell' ? TradeMode.SELL : TradeMode.BUY}
               />
             </>
           )}
@@ -257,7 +252,7 @@ function App() {
 
       {showAdmin && (
         <AdminPanel 
-          orders={orders} // Admin Panel gets the full list (Admin sees all)
+          orders={orders}
           rates={rates}
           wallets={wallets}
           emailConfig={emailConfig}
@@ -291,4 +286,3 @@ function App() {
 }
 
 export default App;
-
